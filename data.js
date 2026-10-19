@@ -1,20 +1,14 @@
 // ═══════════════════════════════════════════════════════
 //  KONFIGURACJA
 // ═══════════════════════════════════════════════════════
-// UWAGA — MIGRACJA: WEBAPP_URL musi wskazywać na Web App wdrożony z poziomu skryptu
-// PRZYPIĘTEGO do nowego pliku (SHEET_ID poniżej), z SHEET_NAME = 'Dziennik zmian'.
-// Stary URL wskazywał na poprzedni plik danych i nie zadziała tutaj — dopóki nie wklejisz
-// nowego URL-a, odczyt notatek będzie działać (czyta wprost z arkusza), ale dodawanie
-// i usuwanie notatek przez formularz w dashboardzie będzie zablokowane.
+
+// Dziennik zapisu pozostaje na razie wyłączony w Company TEST.
 const WEBAPP_URL = '';
 
-// Nowy firmowy plik źródłowy Google Ads.
+// Firmowy plik Google Ads
 const SHEET_ID = '1_CMt0tZhGqT3y6wp5tTpetU7GtNtt2bKkzERg2iLNhw';
 
-// Zakładki Google Ads adresowane po NAZWIE (nie GID) — odporne na kopiowanie arkusza
-// i na przypadkową zmianę GID-ów; wykorzystuje fetchCsvByName() zamiast fetchCsv().
-// UWAGA: zakładka "Konfiguracja" w tym pliku jest już nieużywana — progi czytamy teraz
-// z osobnego pliku Konfiguracja (CONFIG_SHEET_ID poniżej), patrz CONFIG_SHEET_NAMES.
+// Zakładki Google Ads adresowane po nazwie.
 const SHEET_NAMES = {
   wydatki:      'Wydatki',
   audyt:        'Audyt',
@@ -25,8 +19,7 @@ const SHEET_NAMES = {
   notatki:      'Dziennik zmian',
 };
 
-// Firmowy arkusz Meta Ads — osobny plik Google Sheets,
-// wszystkie zakładki adresowane po GID.
+// Firmowy plik Meta Ads
 const META_SHEET_ID = '1_GCw4RqECUNeKisRNXSpb0ekcz1IQNxgb180ymexLOU';
 
 const META_GIDS = {
@@ -36,14 +29,11 @@ const META_GIDS = {
   metaMiesieczny:   '1581500139',
   metaAudyt:        '983098958',
   metaKonta:        '0',
-
-  // GID-y zakładek utworzonych przez skrypt Meta.
   metaAudytWart:        '2046433272',
   metaWartoscKonwersji: '1488328459',
 };
 
-// Firmowy plik Konfiguracja — jedyne źródło progów alertowych
-// dla obu platform.
+// Firmowy plik konfiguracji
 const CONFIG_SHEET_ID = '1fy9NxgD9G52lRRie4Br9L-Y_VRVseZ4ksFmH32t5v8M';
 
 const CONFIG_SHEET_NAMES = {
@@ -52,7 +42,9 @@ const CONFIG_SHEET_NAMES = {
 };
 
 if (!SHEET_ID) {
-  console.error('[Config] Brak SHEET_ID — dashboard nie pobierze danych.');
+  console.error(
+    '[Config] Brak SHEET_ID — dashboard nie pobierze danych.'
+  );
 }
 
 if (!WEBAPP_URL) {
@@ -62,58 +54,57 @@ if (!WEBAPP_URL) {
 }
 
 if (!META_SHEET_ID) {
-  console.warn('[Config] Brak META_SHEET_ID — dane Meta Ads będą niedostępne.');
+  console.warn(
+    '[Config] Brak META_SHEET_ID — dane Meta Ads będą niedostępne.'
+  );
 }
 
 if (!CONFIG_SHEET_ID) {
   console.warn(
-    '[Config] Brak CONFIG_SHEET_ID — progi spadną na wartości systemowe (DEFAULTS/META_DEFAULTS).'
+    '[Config] Brak CONFIG_SHEET_ID — progi spadną na wartości systemowe.'
   );
 }
 
 
 // ═══════════════════════════════════════════════════════
-//  KONTRAKT META — RAPORT MIESIĘCZNY
+//  META — KONTRAKT RAPORTU MIESIĘCZNEGO
 // ═══════════════════════════════════════════════════════
 
-// Nazwy muszą odpowiadać HEADERS_MONTHLY w GAS.
 const META_MONTHLY_HEADERS = Object.freeze([
-  'Data i godzina aktualizacji',                   // A
-  'ID Konta',                                      // B
-  'Konto',                                         // C
-  'ID Zestawu',                                    // D
-  'Nazwa zestawu reklam',                          // E
-  'Cel optymalizacji',                             // F
-  'Koszt (Miesiąc)',                               // G
-  'Kliknięcia (Miesiąc)',                          // H
-  'CPC',                                           // I
-  'Wyświetlenia (Miesiąc)',                        // J
-  'Zasięg (Miesiąc)',                              // K
-  'Wynik (Miesiąc)',                               // L
-  'Prognoza wyniku (cały miesiąc)',                // M
-  'Wynik (poprzedni miesiąc)',                     // N
-  'Zmiana prognozy wyniku vs poprzedni miesiąc (%)' // O
+  'Data i godzina aktualizacji',
+  'ID Konta',
+  'Konto',
+  'ID Zestawu',
+  'Nazwa zestawu reklam',
+  'Cel optymalizacji',
+  'Koszt (Miesiąc)',
+  'Kliknięcia (Miesiąc)',
+  'CPC',
+  'Wyświetlenia (Miesiąc)',
+  'Zasięg (Miesiąc)',
+  'Wynik (Miesiąc)',
+  'Prognoza wyniku (cały miesiąc)',
+  'Wynik (poprzedni miesiąc)',
+  'Zmiana prognozy wyniku vs poprzedni miesiąc (%)'
 ]);
 
 const META_MONTHLY_FIELDS = Object.freeze({
   updatedAt: META_MONTHLY_HEADERS[0],
-  result:    META_MONTHLY_HEADERS[11],
-  forecast:  META_MONTHLY_HEADERS[12],
-  previous:  META_MONTHLY_HEADERS[13],
-  change:    META_MONTHLY_HEADERS[14],
+  result: META_MONTHLY_HEADERS[11],
+  forecast: META_MONTHLY_HEADERS[12],
+  previous: META_MONTHLY_HEADERS[13],
+  change: META_MONTHLY_HEADERS[14],
 });
 
-// Skracamy tylko etykiety.
-// Odczyt i sortowanie nadal używają pełnych nazw z CSV.
 const META_MONTHLY_LABELS = Object.freeze({
   [META_MONTHLY_FIELDS.forecast]: 'Prognoza miesiąca',
   [META_MONTHLY_FIELDS.previous]: 'Wynik poprzedni miesiąc',
-  [META_MONTHLY_FIELDS.change]:   'Zmiana prognozy (%)',
+  [META_MONTHLY_FIELDS.change]: 'Zmiana prognozy (%)',
 });
 
 
 // ═══════════════════════════════════════════════════════
-//  GLOBALNY STAN DANYCH
+//  STAN APLIKACJI
 // ═══════════════════════════════════════════════════════
 
 let DATA = {};
@@ -123,11 +114,16 @@ let ALL_KONTA = [];
 let GOOGLE_KONTA = [];
 let META_KONTA = [];
 
-
-// ── LICZNIK WYNIKÓW ───────────────────────────────────
-// Klucz: nazwa strony, np. "wydatki", "overview"
-// Wartość: { shown, total }
 let PAGE_COUNTS = {};
+let SORT_STATE = {};
+
+let notesLoading = false;
+let dataAbortController = null;
+
+
+// ═══════════════════════════════════════════════════════
+//  LICZNIK WYNIKÓW
+// ═══════════════════════════════════════════════════════
 
 function updateResultsCountDisplay() {
   const el = document.getElementById('resultsCount');
@@ -147,21 +143,27 @@ function updateResultsCountDisplay() {
     return;
   }
 
-  el.textContent = c.shown === c.total
-    ? `${c.total} ${plural(c.total, 'wynik', 'wyniki', 'wyników')}`
-    : `${c.shown} z ${c.total} ${plural(c.total, 'wynik', 'wyniki', 'wyników')}`;
+  el.textContent =
+    c.shown === c.total
+      ? `${c.total} ${plural(
+          c.total,
+          'wynik',
+          'wyniki',
+          'wyników'
+        )}`
+      : `${c.shown} z ${c.total} ${plural(
+          c.total,
+          'wynik',
+          'wyniki',
+          'wyników'
+        )}`;
 }
 
 
-// ── STAN SORTOWANIA ────────────────────────────────────
-// Klucz: bodyId tabeli, np. "wydatkiBody"
-// Wartość: { col, dir }
-let SORT_STATE = {};
+// ═══════════════════════════════════════════════════════
+//  SORTOWANIE
+// ═══════════════════════════════════════════════════════
 
-
-// Sortuje tablicę wierszy wg podanej kolumny.
-// Automatycznie wykrywa czy wartości są numeryczne.
-// Obsługuje spacje, %, PLN i przecinek dziesiętny.
 function sortData(data, col, dir) {
   if (!col) return data;
 
@@ -178,8 +180,6 @@ function sortData(data, col, dir) {
         : ''
     );
 
-    // Parsowanie polskich liczb:
-    // "1 234,56 zł" → 1234.56
     function toNum(s) {
       var c = s
         .replace(/[%\s\u00a0]/g, '')
@@ -212,14 +212,9 @@ function sortData(data, col, dir) {
 }
 
 
-// ── FLAGI NOTATEK ──────────────────────────────────────
-
-let notesLoading = false;
-
-let dataAbortController = null;
-
-
-// ── DEBOUNCE ───────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  DEBOUNCE
+// ═══════════════════════════════════════════════════════
 
 function debounce(fn, ms) {
   let timer;
@@ -236,29 +231,19 @@ function debounce(fn, ms) {
 
 
 // ═══════════════════════════════════════════════════════
-//  PROGI ALERTÓW — WSPÓLNE GOOGLE / META
+//  PROGI PORÓWNAŃ
 // ═══════════════════════════════════════════════════════
-
-// Wspólna polityka kolorowania Google Ads i Meta Ads.
-// Liczby oznaczają procent zmiany:
-// 30 = 30%, nie 0.30.
-//
-// Nadpisania:
-// konto → DOMYŚLNE platformy → wartości poniżej.
 
 const COMPARISON_DEFAULTS = Object.freeze({
   anomalia_spadek_amber: 30,
-  anomalia_spadek_red:   50,
-  anomalia_wzrost:      100,
-
+  anomalia_spadek_red: 50,
+  anomalia_wzrost: 100,
   trend_spadek_amber: 30,
-  trend_spadek_red:   50,
-  trend_wzrost:       30,
+  trend_spadek_red: 50,
+  trend_wzrost: 30,
 });
 
-
 const COMPARISON_FIELDS = Object.freeze({
-
   anomalia_spadek_amber: {
     header: 'Anomalia_spadek_amber',
     aliases: ['Spadek_amber'],
@@ -295,12 +280,9 @@ const COMPARISON_FIELDS = Object.freeze({
     header: 'Trend_wzrost',
     aliases: []
   },
-
 });
 
-
 const COMPARISON_WARNINGS = new Map();
-
 
 const COMPARISON_PAGES = new Set([
   'overview',
@@ -314,10 +296,7 @@ const COMPARISON_PAGES = new Set([
 ]);
 
 
-// Nie uznajemy braku danych, NaN ani tekstu za zero.
-// Zero jest poprawną wartością.
 function parseComparisonNumber(value) {
-
   if (
     value === null ||
     value === undefined ||
@@ -355,14 +334,12 @@ function parseComparisonNumber(value) {
 
 
 function warnComparisonConfig(platform, message) {
-
   const key =
     platform +
     ':' +
     message;
 
   if (!COMPARISON_WARNINGS.has(key)) {
-
     COMPARISON_WARNINGS.set(
       key,
       {
@@ -372,14 +349,14 @@ function warnComparisonConfig(platform, message) {
     );
 
     console.warn(
-      '[Progi porównań] ' + message
+      '[Progi porównań] ' +
+      message
     );
   }
 }
 
 
 function buildComparisonConfig(row, platform) {
-
   const result =
     Object.create(null);
 
@@ -390,52 +367,58 @@ function buildComparisonConfig(row, platform) {
 
   Object.entries(
     COMPARISON_FIELDS
-  ).forEach(([field, spec]) => {
+  ).forEach(
+    ([field, spec]) => {
 
-    for (
-      const header of
-      [spec.header, ...spec.aliases]
-    ) {
-
-      const raw =
-        row[header];
-
-      if (
-        raw === undefined ||
-        raw === null ||
-        String(raw).trim() === ''
-      ) {
-        continue;
-      }
-
-      const value =
-        parseComparisonNumber(raw);
-
-      if (
-        value === null ||
-        value <= 0 ||
-        (spec.max && value > spec.max)
+      for (
+        const header of [
+          spec.header,
+          ...spec.aliases
+        ]
       ) {
 
-        warnComparisonConfig(
-          platform,
-          account +
-          ': nieprawidłowy próg ' +
-          header +
-          '. Użyto kolejnej dostępnej wartości lub progu domyślnego.'
-        );
+        const raw =
+          row[header];
 
-        continue;
+        if (
+          raw === undefined ||
+          raw === null ||
+          String(raw).trim() === ''
+        ) {
+          continue;
+        }
+
+        const value =
+          parseComparisonNumber(raw);
+
+        if (
+          value === null ||
+          value <= 0 ||
+          (
+            spec.max &&
+            value > spec.max
+          )
+        ) {
+          warnComparisonConfig(
+            platform,
+            account +
+              ': nieprawidłowy próg ' +
+              header +
+              '. Użyto kolejnej dostępnej wartości lub progu domyślnego.'
+          );
+
+          continue;
+        }
+
+        result[field] = {
+          value,
+          header
+        };
+
+        break;
       }
-
-      result[field] = {
-        value,
-        header
-      };
-
-      break;
     }
-  });
+  );
 
   return result;
 }
@@ -465,22 +448,31 @@ function getComparisonThresholds(
     ) || {};
 
   const id =
-    String(accountId ?? '').trim() ||
+    String(
+      accountId ?? ''
+    ).trim() ||
     map[konto] ||
     konto;
 
   const normalizedId =
     meta
       ? normalizeMetaAccountId(id)
-      : String(id ?? '')
-          .replace(/[-\s]/g, '');
+      : String(
+          id ?? ''
+        ).replace(
+          /[-\s]/g,
+          ''
+        );
 
   const accountRow =
     cfg[id] ||
     cfg[normalizedId] ||
     (
       meta
-        ? cfg['act_' + normalizedId]
+        ? cfg[
+            'act_' +
+            normalizedId
+          ]
         : null
     );
 
@@ -531,7 +523,6 @@ function getComparisonThresholds(
         : COMPARISON_DEFAULTS[field];
 
     if (entry) {
-
       sources.push(
         (
           own
@@ -545,11 +536,11 @@ function getComparisonThresholds(
   });
 
 
-  // Sprzecznych progów nie odwracamy po cichu.
-  // Oba progi spadku wracają do wspólnej pary.
   for (
-    const mode of
-    ['anomalia', 'trend']
+    const mode of [
+      'anomalia',
+      'trend'
+    ]
   ) {
 
     const amber =
@@ -567,23 +558,32 @@ function getComparisonThresholds(
 
       warnComparisonConfig(
         platform,
-        String(konto || id) +
-        ': ' +
-        mode +
-        ' - próg pomarańczowy jest większy od czerwonego. Dla tej pary użyto 30% / 50%.'
+        String(
+          konto || id
+        ) +
+          ': ' +
+          mode +
+          ' - próg pomarańczowy jest większy od czerwonego. Dla tej pary użyto 30% / 50%.'
       );
 
       t[amber] =
-        COMPARISON_DEFAULTS[amber];
+        COMPARISON_DEFAULTS[
+          amber
+        ];
 
       t[red] =
-        COMPARISON_DEFAULTS[red];
+        COMPARISON_DEFAULTS[
+          red
+        ];
     }
   }
 
-
   t.sources =
-    [...new Set(sources)].join('; ') ||
+    [
+      ...new Set(
+        sources
+      )
+    ].join('; ') ||
     'wspólne progi domyślne';
 
   cache.set(
@@ -595,11 +595,6 @@ function getComparisonThresholds(
 }
 
 
-// Wspólny klasyfikator:
-// ta sama zmiana i te same progi = ten sam kolor.
-//
-// Dzienny wzrost jest ostrzeżeniem.
-// Wzrost trendu oznacza kierunek, nie rentowność.
 function comparisonClass(
   change,
   mode,
@@ -621,21 +616,30 @@ function comparisonClass(
 
   if (
     change <=
-    -t[prefix + '_spadek_red']
+    -t[
+      prefix +
+      '_spadek_red'
+    ]
   ) {
     return 'metric-red';
   }
 
   if (
     change <=
-    -t[prefix + '_spadek_amber']
+    -t[
+      prefix +
+      '_spadek_amber'
+    ]
   ) {
     return 'metric-amber';
   }
 
   if (
     change >=
-    t[prefix + '_wzrost']
+    t[
+      prefix +
+      '_wzrost'
+    ]
   ) {
     return mode === 'anomaly'
       ? 'metric-amber'
@@ -656,7 +660,9 @@ function formatComparisonMetric(
 ) {
 
   const n =
-    parseComparisonNumber(value);
+    parseComparisonNumber(
+      value
+    );
 
   const change =
     n === null
@@ -681,26 +687,23 @@ function formatComparisonMetric(
       t
     );
 
-
-  if (cls === 'metric-empty') {
-
+  if (
+    cls ===
+    'metric-empty'
+  ) {
     return (
       '<span class="metric-empty" ' +
       'data-comparison="' +
       mode +
       '" ' +
-      'title="Brak poprawnego porównania: brak danych, zerowa podstawa lub nieprawidłowa wartość">' +
-      '—' +
-      '</span>'
+      'title="Brak poprawnego porównania: brak danych, zerowa podstawa lub nieprawidłowa wartość">—</span>'
     );
   }
-
 
   const prefix =
     mode === 'anomaly'
       ? 'anomalia'
       : 'trend';
-
 
   const label =
     (
@@ -711,13 +714,10 @@ function formatComparisonMetric(
     ) +
     fmtPct(n);
 
-
   const unit =
     inputKind === 'ratio'
-
       ? (
-          'Relacja do bazy: 100% = bez zmian. ' +
-          'Zmiana: ' +
+          'Relacja do bazy: 100% = bez zmian. Zmiana: ' +
           (
             change > 0
               ? '+'
@@ -726,31 +726,29 @@ function formatComparisonMetric(
           fmtPct(change) +
           '. '
         )
-
-      : (
-          'Zmiana względem bazy: 0% = bez zmian. '
-        );
-
+      : 'Zmiana względem bazy: 0% = bez zmian. ';
 
   const meaning =
     mode === 'anomaly'
-
-      ? (
-          'Anomalia dzienna: duży wzrost to ostrzeżenie, nie zielony sukces. '
-        )
-
-      : (
-          'Trend: zielony oznacza wzrost raportowanej metryki, nie potwierdzenie rentowności. '
-        );
-
+      ? 'Anomalia dzienna: duży wzrost to ostrzeżenie, nie zielony sukces. '
+      : 'Trend: zielony oznacza wzrost raportowanej metryki, nie potwierdzenie rentowności. ';
 
   const rules =
     'Spadek od ' +
-    t[prefix + '_spadek_amber'] +
+    t[
+      prefix +
+      '_spadek_amber'
+    ] +
     '%: pomarańczowy; od ' +
-    t[prefix + '_spadek_red'] +
+    t[
+      prefix +
+      '_spadek_red'
+    ] +
     '%: czerwony. Wzrost od ' +
-    t[prefix + '_wzrost'] +
+    t[
+      prefix +
+      '_wzrost'
+    ] +
     '%: ' +
     (
       mode === 'anomaly'
@@ -758,7 +756,6 @@ function formatComparisonMetric(
         : 'zielony'
     ) +
     '. ';
-
 
   return (
     '<span class="' +
@@ -835,7 +832,6 @@ const META_COMPARISON_BASES =
       'Wartość konwersji (30 dni)',
       'Wartość konwersji (90 dni → odpowiednik 30-dniowy)'
     ],
-
   });
 
 
@@ -847,10 +843,14 @@ function comparisonColumnSpec(
 
   if (
     (
-      bodyId === 'anomaliaBody' ||
-      bodyId === 'metaAnomaliaBody'
+      bodyId ===
+      'anomaliaBody' ||
+      bodyId ===
+      'metaAnomaliaBody'
     ) &&
-    DAILY_COMPARISON_HEADERS.has(header)
+    DAILY_COMPARISON_HEADERS.has(
+      header
+    )
   ) {
     return {
       mode: 'anomaly',
@@ -862,10 +862,14 @@ function comparisonColumnSpec(
   if (
     platform === 'google' &&
     (
-      bodyId === 'audytBody' ||
-      bodyId === 'audytWartBody'
+      bodyId ===
+      'audytBody' ||
+      bodyId ===
+      'audytWartBody'
     ) &&
-    GOOGLE_TREND_HEADERS.has(header)
+    GOOGLE_TREND_HEADERS.has(
+      header
+    )
   ) {
     return {
       mode: 'trend',
@@ -877,11 +881,17 @@ function comparisonColumnSpec(
   if (
     platform === 'meta' &&
     (
-      bodyId === 'metaAudytBody' ||
-      bodyId === 'metaAudytWartBody'
+      bodyId ===
+      'metaAudytBody' ||
+      bodyId ===
+      'metaAudytWartBody'
     ) &&
-    header.includes('30 dni vs 90 dni') &&
-    META_COMPARISON_BASES[header]
+    header.includes(
+      '30 dni vs 90 dni'
+    ) &&
+    META_COMPARISON_BASES[
+      header
+    ]
   ) {
     return {
       mode: 'trend',
@@ -889,16 +899,10 @@ function comparisonColumnSpec(
     };
   }
 
-
   return null;
 }
 
 
-// Przegląd i tabela szczegółowa korzystają
-// z identycznego źródła porównania.
-//
-// Awaryjne wyliczenie Meta dopuszczamy tylko
-// przy dwóch znanych liczbach i bazie > 0.
 function comparisonCellValue(
   header,
   row,
@@ -909,7 +913,6 @@ function comparisonCellValue(
     row &&
     row[header];
 
-
   if (
     value !== null &&
     value !== undefined &&
@@ -918,21 +921,22 @@ function comparisonCellValue(
     return value;
   }
 
-
   if (
     platform !== 'meta' ||
-    !META_COMPARISON_BASES[header]
+    !META_COMPARISON_BASES[
+      header
+    ]
   ) {
     return null;
   }
-
 
   const [
     currentHeader,
     baseHeader
   ] =
-    META_COMPARISON_BASES[header];
-
+    META_COMPARISON_BASES[
+      header
+    ];
 
   const current =
     parseComparisonNumber(
@@ -940,13 +944,11 @@ function comparisonCellValue(
       row[currentHeader]
     );
 
-
   const base =
     parseComparisonNumber(
       row &&
       row[baseHeader]
     );
-
 
   if (
     current === null ||
@@ -957,7 +959,6 @@ function comparisonCellValue(
     return null;
   }
 
-
   const pct =
     (
       (current - base) /
@@ -965,15 +966,14 @@ function comparisonCellValue(
     ) *
     100;
 
-
   return Number.isFinite(pct)
-    ? Math.round(pct * 100) / 100
+    ? Math.round(
+        pct * 100
+      ) / 100
     : null;
 }
 
 
-// Sortujemy te same liczby, które widzimy w komórkach.
-// Brak porównania zawsze trafia na koniec.
 function sortComparisonRows(
   rows,
   header,
@@ -997,11 +997,11 @@ function sortComparisonRows(
       n === null
         ? null
         : (
-            spec.inputKind === 'ratio'
+            spec.inputKind ===
+            'ratio'
               ? n - 100
               : n
           );
-
 
     return (
       delta === null ||
@@ -1011,41 +1011,52 @@ function sortComparisonRows(
       : n;
   }
 
-
   return rows
-    .map(row => ({
-      row,
-      value: numberFor(row)
-    }))
-    .sort((a, b) => {
+    .map(
+      row => ({
+        row,
+        value:
+          numberFor(row)
+      })
+    )
+    .sort(
+      (a, b) => {
 
-      if (
-        a.value === null &&
-        b.value === null
-      ) {
-        return 0;
+        if (
+          a.value === null &&
+          b.value === null
+        ) {
+          return 0;
+        }
+
+        if (
+          a.value === null
+        ) {
+          return 1;
+        }
+
+        if (
+          b.value === null
+        ) {
+          return -1;
+        }
+
+        return (
+          a.value -
+          b.value
+        ) *
+        (
+          direction ===
+          'desc'
+            ? -1
+            : 1
+        );
       }
-
-      if (a.value === null) {
-        return 1;
-      }
-
-      if (b.value === null) {
-        return -1;
-      }
-
-      return (
-        a.value -
-        b.value
-      ) *
-      (
-        direction === 'desc'
-          ? -1
-          : 1
-      );
-
-    })
-    .map(item => item.row);
+    )
+    .map(
+      item =>
+        item.row
+    );
 }
 
 
@@ -1056,7 +1067,6 @@ function renderComparisonHelp() {
       '.page.active'
     );
 
-
   const name =
     active
       ? active.id.replace(
@@ -1065,18 +1075,15 @@ function renderComparisonHelp() {
         )
       : '';
 
-
   const el =
     document.getElementById(
       'comparisonLegend'
     );
 
-
   const notice =
     document.getElementById(
       'comparisonConfigNotice'
     );
-
 
   if (
     !el ||
@@ -1085,100 +1092,86 @@ function renderComparisonHelp() {
     return;
   }
 
-
   el.hidden =
-    !COMPARISON_PAGES.has(name);
-
+    !COMPARISON_PAGES.has(
+      name
+    );
 
   const meta =
-    name.startsWith('meta');
-
+    name.startsWith(
+      'meta'
+    );
 
   const warnings =
-    [...COMPARISON_WARNINGS.values()]
-      .filter(
-        w =>
-          w.platform ===
-          (
-            meta
-              ? 'meta'
-              : 'google'
-          )
-      );
-
+    [
+      ...COMPARISON_WARNINGS.values()
+    ].filter(
+      w =>
+        w.platform ===
+        (
+          meta
+            ? 'meta'
+            : 'google'
+        )
+    );
 
   notice.hidden =
     el.hidden ||
     warnings.length === 0;
 
-
   notice.textContent =
     warnings
-      .map(w => w.message)
+      .map(
+        w =>
+          w.message
+      )
       .join(' ');
 
-
-  document
-    .getElementById(
+  const body =
+    document.getElementById(
       'comparisonLegendBody'
-    )
-    .textContent =
+    );
 
+  if (body) {
+    body.textContent =
       'Te same zasady dla Google Ads i Meta Ads. ' +
-
       'Domyślnie: spadek od ' +
       COMPARISON_DEFAULTS.anomalia_spadek_amber +
       '% ostrzega, od ' +
       COMPARISON_DEFAULTS.anomalia_spadek_red +
       '% jest czerwony. ' +
-
       'Dzienny wzrost od ' +
       COMPARISON_DEFAULTS.anomalia_wzrost +
       '% ostrzega; wzrost trendu od ' +
       COMPARISON_DEFAULTS.trend_wzrost +
       '% jest zielony (wzrost metryki, nie rentowność). ' +
-
       'Progi konta mają pierwszeństwo — najedź na wartość, aby je zobaczyć. ' +
-
-      'W audytach Google 100% oznacza brak zmian; ' +
-      'w zmianach Meta brak zmian to 0%. ' +
-
+      'W audytach Google 100% oznacza brak zmian; w zmianach Meta brak zmian to 0%. ' +
       'Brak porównania pozostaje kreską.';
+  }
 }
 
 
 // ═══════════════════════════════════════════════════════
-//  PROGI GOOGLE ADS
+//  GOOGLE ADS — DOMYŚLNE PROGI
 // ═══════════════════════════════════════════════════════
 
 const DEFAULTS = {
-  budzet_min:      90,
-  budzet_max:     110,
-
-  roas_min:       300,
-  roas_amber:     500,
-  roas_red:       300,
-
-  konw_min:         1,
-  konw_pct_min:    75,
-
-  // Legacy — alerty korzystają z COMPARISON_DEFAULTS
-  // oraz _comparison.
+  budzet_min:       90,
+  budzet_max:      110,
+  roas_min:        300,
+  roas_amber:      500,
+  roas_red:        300,
+  konw_min:          1,
+  konw_pct_min:     75,
   anomalia_spadek: 100,
   anomalia_wzrost: 100,
 };
 
 
-// buildConfig działa identycznie niezależnie od tego,
-// czy kolumna "Konto" w arkuszu Progi zawiera ID konta,
-// czy literał "DOMYŚLNE".
-//
-// To tylko klucz mapy, bez znaczenia semantycznego
-// na tym etapie.
 function buildConfig(rows) {
 
   const cfg = {};
-
 
   (rows || []).forEach(
     function(r) {
@@ -1189,11 +1182,7 @@ function buildConfig(rows) {
           ''
         ).trim();
 
-
-      if (!konto) {
-        return;
-      }
-
+      if (!konto) return;
 
       cfg[konto] = {
 
@@ -1203,7 +1192,6 @@ function buildConfig(rows) {
             'google'
           ),
 
-
         budzet_min:
           r['Budzet_min'] !== '' &&
           r['Budzet_min'] !== undefined
@@ -1211,7 +1199,6 @@ function buildConfig(rows) {
                 r['Budzet_min']
               )
             : undefined,
-
 
         budzet_max:
           r['Budzet_max'] !== '' &&
@@ -1221,7 +1208,6 @@ function buildConfig(rows) {
               )
             : undefined,
 
-
         roas_amber:
           r['ROAS_amber'] !== '' &&
           r['ROAS_amber'] !== undefined
@@ -1229,7 +1215,6 @@ function buildConfig(rows) {
                 r['ROAS_amber']
               )
             : undefined,
-
 
         roas_red:
           r['ROAS_red'] !== '' &&
@@ -1239,7 +1224,6 @@ function buildConfig(rows) {
               )
             : undefined,
 
-
         konw_min:
           r['Konw_min'] !== '' &&
           r['Konw_min'] !== undefined
@@ -1247,7 +1231,6 @@ function buildConfig(rows) {
                 r['Konw_min']
               )
             : undefined,
-
 
         konw_pct_min:
           r['Konw_pct_min'] !== '' &&
@@ -1257,7 +1240,6 @@ function buildConfig(rows) {
               )
             : undefined,
 
-
         anomalia_spadek:
           r['Anomalia_spadek'] !== '' &&
           r['Anomalia_spadek'] !== undefined
@@ -1266,7 +1248,6 @@ function buildConfig(rows) {
               )
             : undefined,
 
-
         anomalia_wzrost:
           r['Anomalia_wzrost'] !== '' &&
           r['Anomalia_wzrost'] !== undefined
@@ -1274,142 +1255,120 @@ function buildConfig(rows) {
                 r['Anomalia_wzrost']
               )
             : undefined,
-
       };
     }
   );
-
 
   return cfg;
 }
 
 
-// Mapa nazwa konta → ID konta jest budowana z zakładki
-// Wydatki, która ma kolumnę "ID Konta".
-//
-// getThresholds/getMetaThresholds przyjmują nazwę konta,
-// ale wewnątrz tłumaczą ją na ID.
-//
-// Kolejność:
-// 1. wiersz konkretnego konta,
-// 2. DOMYŚLNE,
-// 3. hardkodowane DEFAULTS / META_DEFAULTS.
-//
-// Kaskada działa per pole.
 function getThresholds(konto) {
 
   const cfg =
     DATA._config ||
     {};
 
-
   const nameToId =
     DATA._nameToId ||
     {};
-
 
   const id =
     nameToId[konto] ||
     konto;
 
-
   const idRow =
     cfg[id];
 
-
   const defaultRow =
     cfg['DOMYŚLNE'];
-
 
   function pick(field) {
 
     if (
       idRow &&
-      idRow[field] !== undefined
+      idRow[field] !==
+        undefined
     ) {
       return idRow[field];
     }
 
     if (
       defaultRow &&
-      defaultRow[field] !== undefined
+      defaultRow[field] !==
+        undefined
     ) {
-      return defaultRow[field];
+      return defaultRow[
+        field
+      ];
     }
 
     return DEFAULTS[field];
   }
 
-
   return {
-
     budzet_min:
-      pick('budzet_min'),
+      pick(
+        'budzet_min'
+      ),
 
     budzet_max:
-      pick('budzet_max'),
+      pick(
+        'budzet_max'
+      ),
 
     roas_amber:
-      pick('roas_amber'),
+      pick(
+        'roas_amber'
+      ),
 
     roas_red:
-      pick('roas_red'),
+      pick(
+        'roas_red'
+      ),
 
     konw_min:
-      pick('konw_min'),
+      pick(
+        'konw_min'
+      ),
 
     konw_pct_min:
-      pick('konw_pct_min'),
+      pick(
+        'konw_pct_min'
+      ),
 
     anomalia_spadek:
-      pick('anomalia_spadek'),
+      pick(
+        'anomalia_spadek'
+      ),
 
     anomalia_wzrost:
-      pick('anomalia_wzrost'),
-
+      pick(
+        'anomalia_wzrost'
+      ),
   };
 }
 
 
 // ═══════════════════════════════════════════════════════
-//  PROGI META ADS
+//  META ADS — DOMYŚLNE PROGI
 // ═══════════════════════════════════════════════════════
-//
-// Arkusz "Progi - Meta Ads" w pliku Konfiguracja.
-//
-// Kolumny:
-//
-// Konto
-// Budzet_min
-// Budzet_max
-// ROAS_amber
-// ROAS_red
-// Konw_min
-// Konw_pct_min
-//
-// oraz wspólne progi anomalii i trendów.
 
 const META_DEFAULTS = {
-
-  budzet_min:   80,
-  budzet_max:  110,
-
-  roas_amber:  500,
-  roas_red:    300,
-
-  spadek_amber: 30,
-  spadek_red:   50,
-
-  konw_min:      1,
-  konw_pct_min: 75,
-
+  budzet_min:     80,
+  budzet_max:    110,
+  roas_amber:    500,
+  roas_red:      300,
+  spadek_amber:   30,
+  spadek_red:     50,
+  konw_min:        1,
+  konw_pct_min:   75,
 };
 
 
 function buildMetaConfig(rows) {
 
   const cfg = {};
-
 
   (rows || []).forEach(
     function(r) {
@@ -1420,11 +1379,7 @@ function buildMetaConfig(rows) {
           ''
         ).trim();
 
-
-      if (!konto) {
-        return;
-      }
-
+      if (!konto) return;
 
       cfg[konto] = {
 
@@ -1434,7 +1389,6 @@ function buildMetaConfig(rows) {
             'meta'
           ),
 
-
         budzet_min:
           r['Budzet_min'] !== '' &&
           r['Budzet_min'] !== undefined
@@ -1442,7 +1396,6 @@ function buildMetaConfig(rows) {
                 r['Budzet_min']
               )
             : undefined,
-
 
         budzet_max:
           r['Budzet_max'] !== '' &&
@@ -1452,7 +1405,6 @@ function buildMetaConfig(rows) {
               )
             : undefined,
 
-
         roas_amber:
           r['ROAS_amber'] !== '' &&
           r['ROAS_amber'] !== undefined
@@ -1460,7 +1412,6 @@ function buildMetaConfig(rows) {
                 r['ROAS_amber']
               )
             : undefined,
-
 
         roas_red:
           r['ROAS_red'] !== '' &&
@@ -1470,7 +1421,6 @@ function buildMetaConfig(rows) {
               )
             : undefined,
 
-
         spadek_amber:
           r['Spadek_amber'] !== '' &&
           r['Spadek_amber'] !== undefined
@@ -1478,7 +1428,6 @@ function buildMetaConfig(rows) {
                 r['Spadek_amber']
               )
             : undefined,
-
 
         spadek_red:
           r['Spadek_red'] !== '' &&
@@ -1488,7 +1437,6 @@ function buildMetaConfig(rows) {
               )
             : undefined,
 
-
         konw_min:
           r['Konw_min'] !== '' &&
           r['Konw_min'] !== undefined
@@ -1497,7 +1445,6 @@ function buildMetaConfig(rows) {
               )
             : undefined,
 
-
         konw_pct_min:
           r['Konw_pct_min'] !== '' &&
           r['Konw_pct_min'] !== undefined
@@ -1505,21 +1452,14 @@ function buildMetaConfig(rows) {
                 r['Konw_pct_min']
               )
             : undefined,
-
       };
     }
   );
-
 
   return cfg;
 }
 
 
-// Identyczna kaskada:
-// ID → DOMYŚLNE → META_DEFAULTS.
-//
-// DATA._nameToIdMeta jest budowane z zakładki
-// Wydatki pliku Meta Ads.
 function getMetaThresholds(
   konto,
   accountId
@@ -1529,14 +1469,10 @@ function getMetaThresholds(
     DATA._metaConfig ||
     {};
 
-
   const nameToId =
     DATA._nameToIdMeta ||
     {};
 
-
-  // ID z wiersza ma pierwszeństwo.
-  // Obsługujemy ID z prefiksem act_ i bez niego.
   const id =
     String(
       accountId ?? ''
@@ -1544,67 +1480,85 @@ function getMetaThresholds(
     nameToId[konto] ||
     konto;
 
-
   const normalizedId =
-    normalizeMetaAccountId(id);
-
+    normalizeMetaAccountId(
+      id
+    );
 
   const idRow =
     cfg[id] ||
     cfg[normalizedId] ||
-    cfg['act_' + normalizedId];
-
+    cfg[
+      'act_' +
+      normalizedId
+    ];
 
   const defaultRow =
     cfg['DOMYŚLNE'];
-
 
   function pick(field) {
 
     if (
       idRow &&
-      idRow[field] !== undefined
+      idRow[field] !==
+        undefined
     ) {
       return idRow[field];
     }
 
     if (
       defaultRow &&
-      defaultRow[field] !== undefined
+      defaultRow[field] !==
+        undefined
     ) {
-      return defaultRow[field];
+      return defaultRow[
+        field
+      ];
     }
 
     return META_DEFAULTS[field];
   }
 
-
   return {
-
     budzet_min:
-      pick('budzet_min'),
+      pick(
+        'budzet_min'
+      ),
 
     budzet_max:
-      pick('budzet_max'),
+      pick(
+        'budzet_max'
+      ),
 
     roas_amber:
-      pick('roas_amber'),
+      pick(
+        'roas_amber'
+      ),
 
     roas_red:
-      pick('roas_red'),
+      pick(
+        'roas_red'
+      ),
 
     spadek_amber:
-      pick('spadek_amber'),
+      pick(
+        'spadek_amber'
+      ),
 
     spadek_red:
-      pick('spadek_red'),
+      pick(
+        'spadek_red'
+      ),
 
     konw_min:
-      pick('konw_min'),
+      pick(
+        'konw_min'
+      ),
 
     konw_pct_min:
-      pick('konw_pct_min'),
-
+      pick(
+        'konw_pct_min'
+      ),
   };
 }
 
@@ -1613,15 +1567,14 @@ function getMetaThresholds(
 //  CSV / DANE
 // ═══════════════════════════════════════════════════════
 
-
 function csvUrl(
   gid,
   sheetId
 ) {
-
   return (
     `https://docs.google.com/spreadsheets/d/` +
-    `${sheetId || SHEET_ID}/export?format=csv&gid=${gid}`
+    `${sheetId || SHEET_ID}` +
+    `/export?format=csv&gid=${gid}`
   );
 }
 
@@ -1629,19 +1582,17 @@ function csvUrl(
 function parseCsv(text) {
 
   const rows = [];
-
   let row = [];
   let cur = '';
   let inQ = false;
 
-
   const src =
-    String(text || '')
-      .replace(
-        /^\uFEFF/,
-        ''
-      );
-
+    String(
+      text || ''
+    ).replace(
+      /^\uFEFF/,
+      ''
+    );
 
   for (
     let i = 0;
@@ -1649,9 +1600,7 @@ function parseCsv(text) {
     i++
   ) {
 
-    const c =
-      src[i];
-
+    const c = src[i];
 
     if (inQ) {
 
@@ -1667,13 +1616,11 @@ function parseCsv(text) {
         }
 
       } else {
-
         cur += c;
       }
 
       continue;
     }
-
 
     if (c === '"') {
 
@@ -1698,7 +1645,6 @@ function parseCsv(text) {
     }
   }
 
-
   if (
     cur !== '' ||
     row.length ||
@@ -1709,20 +1655,16 @@ function parseCsv(text) {
     rows.push(row);
   }
 
-
   return rows.filter(
     r =>
       r.some(
         v =>
-          String(v).trim() !== ''
+          String(v)
+            .trim() !== ''
       )
   );
 }
 
-
-// ═══════════════════════════════════════════════════════
-//  WALIDACJA META — RAPORT MIESIĘCZNY
-// ═══════════════════════════════════════════════════════
 
 function validateMetaMonthlyHeaders(
   rows,
@@ -1730,14 +1672,14 @@ function validateMetaMonthlyHeaders(
 ) {
 
   if (
-    /^\s*(?:<!doctype|<html|<head|<body)/i.test(text)
+    /^\s*(?:<!doctype|<html|<head|<body)/i.test(
+      text
+    )
   ) {
-
     throw new Error(
       'Raport miesięczny Meta: serwer zwrócił stronę HTML zamiast CSV. Sprawdź dostęp do arkusza i GID.'
     );
   }
-
 
   const headers =
     (
@@ -1748,13 +1690,11 @@ function validateMetaMonthlyHeaders(
         String(h).trim()
     );
 
-
   const missing =
     META_MONTHLY_HEADERS.filter(
       h =>
         !headers.includes(h)
     );
-
 
   const duplicate =
     META_MONTHLY_HEADERS.filter(
@@ -1764,7 +1704,6 @@ function validateMetaMonthlyHeaders(
             v === h
         ).length > 1
     );
-
 
   if (
     missing.length ||
@@ -1787,10 +1726,8 @@ function validateMetaMonthlyHeaders(
           )
         : '',
 
-    ]
-      .filter(Boolean)
+    ].filter(Boolean)
       .join('. ');
-
 
     throw new Error(
       'Raport miesięczny Meta ma niezgodny format. ' +
@@ -1803,6 +1740,7 @@ function validateMetaMonthlyHeaders(
 
 // ═══════════════════════════════════════════════════════
 //  POBIERANIE CSV PO GID
+//  CACHE-BUSTING
 // ═══════════════════════════════════════════════════════
 
 async function fetchCsv(
@@ -1812,44 +1750,40 @@ async function fetchCsv(
   validateMonthly = false
 ) {
 
+  const url =
+    csvUrl(
+      gid,
+      sheetId
+    ) +
+    `&_ts=${Date.now()}`;
+
   const r =
     await fetch(
-      csvUrl(
-        gid,
-        sheetId
-      ),
+      url,
       {
-        signal
+        signal,
+        cache: 'no-store'
       }
     );
 
-
   if (!r.ok) {
-
     throw new Error(
       `HTTP ${r.status} dla GID ${gid}`
     );
   }
 
-
   const text =
     await r.text();
-
 
   const rows =
     parseCsv(text);
 
-
-  // Walidacja przed sprawdzeniem liczby danych.
-  // Działa również dla samych nagłówków.
   if (validateMonthly) {
-
     validateMetaMonthlyHeaders(
       rows,
       text
     );
   }
-
 
   const headers =
     (
@@ -1860,52 +1794,46 @@ async function fetchCsv(
         h.trim()
     );
 
-
   const result =
     rows
       .slice(1)
-      .map(vals => {
+      .map(
+        vals => {
 
-        const obj = {};
+          const obj = {};
 
+          headers.forEach(
+            (k, i) => {
 
-        headers.forEach(
-          (k, i) => {
+              if (!k) return;
 
-            if (!k) {
-              return;
+              const v =
+                (
+                  vals[i] ||
+                  ''
+                ).trim();
+
+              if (
+                !(k in obj) ||
+                obj[k] === ''
+              ) {
+                obj[k] = v;
+              }
             }
+          );
 
-
-            const v =
-              (
-                vals[i] ||
-                ''
-              ).trim();
-
-
-            if (
-              !(k in obj) ||
-              obj[k] === ''
-            ) {
-
-              obj[k] = v;
-            }
-          }
-        );
-
-
-        return obj;
-      })
+          return obj;
+        }
+      )
       .filter(
         row =>
-          Object.values(row)
-            .some(
-              v =>
-                v !== ''
-            )
+          Object.values(
+            row
+          ).some(
+            v =>
+              v !== ''
+          )
       );
-
 
   Object.defineProperty(
     result,
@@ -1916,17 +1844,15 @@ async function fetchCsv(
     }
   );
 
-
   return result;
 }
 
 
 // ═══════════════════════════════════════════════════════
 //  POBIERANIE CSV PO NAZWIE ZAKŁADKI
+//  CACHE-BUSTING
 // ═══════════════════════════════════════════════════════
 
-// Wersja dla arkuszy adresowanych po nazwie zakładki.
-// Google Ads i Konfiguracja korzystają z tego mechanizmu.
 function csvUrlByName(
   sheetId,
   sheetName
@@ -1934,7 +1860,10 @@ function csvUrlByName(
 
   return (
     `https://docs.google.com/spreadsheets/d/${sheetId}` +
-    `/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`
+    `/gviz/tq?tqx=out:csv&sheet=` +
+    encodeURIComponent(
+      sheetName
+    )
   );
 }
 
@@ -1945,17 +1874,21 @@ async function fetchCsvByName(
   signal
 ) {
 
+  const url =
+    csvUrlByName(
+      sheetId,
+      sheetName
+    ) +
+    `&_ts=${Date.now()}`;
+
   const r =
     await fetch(
-      csvUrlByName(
-        sheetId,
-        sheetName
-      ),
+      url,
       {
-        signal
+        signal,
+        cache: 'no-store'
       }
     );
-
 
   if (!r.ok) {
 
@@ -1964,79 +1897,68 @@ async function fetchCsvByName(
     );
   }
 
-
   const text =
     await r.text();
-
 
   const rows =
     parseCsv(text);
 
-
   if (
     rows.length < 2
   ) {
-
     return [];
   }
-
 
   const headers =
     rows[0];
 
-
   return rows
     .slice(1)
-    .map(vals => {
+    .map(
+      vals => {
 
-      const obj = {};
+        const obj = {};
 
+        headers.forEach(
+          (h, i) => {
 
-      headers.forEach(
-        (h, i) => {
+            const k =
+              h.trim();
 
-          const k =
-            h.trim();
+            if (!k) return;
 
+            const v =
+              (
+                vals[i] ||
+                ''
+              ).trim();
 
-          if (!k) {
-            return;
+            if (
+              !(k in obj) ||
+              obj[k] === ''
+            ) {
+              obj[k] = v;
+            }
           }
+        );
 
-
-          const v =
-            (
-              vals[i] ||
-              ''
-            ).trim();
-
-
-          if (
-            !(k in obj) ||
-            obj[k] === ''
-          ) {
-
-            obj[k] = v;
-          }
-        }
-      );
-
-
-      return obj;
-    })
+        return obj;
+      }
+    )
     .filter(
       r =>
-        Object.values(r)
-          .some(
-            v =>
-              v !== ''
-          )
+        Object.values(
+          r
+        ).some(
+          v =>
+            v !== ''
+        )
     );
 }
 
 
 // ═══════════════════════════════════════════════════════
-//  PARSOWANIE LICZB
+//  FORMATOWANIE LICZB
 // ═══════════════════════════════════════════════════════
 
 function parseNum(s) {
@@ -2049,67 +1971,60 @@ function parseNum(s) {
     return 0;
   }
 
-
   const c =
     String(s)
-
       .replace(
         /[%\s\u00a0]/g,
         ''
       )
-
       .replace(
         /[^\d,.\-]/g,
         ''
       )
-
       .replace(
         /\.(?=\d{3}(,|$))/g,
         ''
       )
-
       .replace(
         /,/g,
         '.'
       );
 
-
   const parts =
     c.split('.');
 
-
   const cleaned =
     parts.length > 2
-
       ? (
           parts
-            .slice(0, -1)
+            .slice(
+              0,
+              -1
+            )
             .join('') +
           '.' +
           parts[
             parts.length - 1
           ]
         )
-
       : c;
 
-
   return (
-    parseFloat(cleaned) ||
+    parseFloat(
+      cleaned
+    ) ||
     0
   );
 }
 
 
-// ═══════════════════════════════════════════════════════
-//  FORMATOWANIE
-// ═══════════════════════════════════════════════════════
-
 function fmtZl(n) {
 
   return (
     Math.round(n)
-      .toLocaleString('pl-PL') +
+      .toLocaleString(
+        'pl-PL'
+      ) +
     ' zł'
   );
 }
@@ -2120,10 +2035,10 @@ function fmtPct(n) {
   return (
     n
       .toFixed(2)
-      .replace('.', ',') +
+      .replace(
+        '.',
+        ','
+      ) +
     ' %'
   );
 }
-
-
-// ═══════════════════════════════════════════════════════
