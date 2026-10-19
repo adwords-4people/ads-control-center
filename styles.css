@@ -1,0 +1,890 @@
+:root {
+  --bg: #ffffff;
+  --bg2: #f8f8f8;
+  --bg3: #f1f1f1;
+  --border: #e0e0e0;
+  --border2: #cccccc;
+  --text: #404041;
+  --muted: #888888;
+  --muted2: #959595;
+  --green: #83C341;
+  --green-dark: #2F9764;
+  --green-bg: rgba(131,195,65,0.1);
+  --red: #C0392B;
+  --red-bg: rgba(192,57,43,0.1);
+  --amber: #FE9500;
+  --amber-bg: rgba(254,149,0,0.1);
+  --blue: #394392;
+  --blue-bg: rgba(57,67,146,0.1);
+  --accent: #83C341;
+  --accent-bg: rgba(131,195,65,0.12);
+  --navy: #394392;
+  --meta: #7B61FF;
+  --meta-bg: rgba(123,97,255,0.12);
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Open Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+a{color:inherit;text-decoration:none}
+.shell{display:flex;min-height:100vh}
+
+/* ── SIDEBAR ── */
+.sidebar{width:230px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.main{flex:1;overflow:hidden;background:var(--bg)}
+.sidebar-logo{padding:22px 20px 18px;border-bottom:1px solid var(--border)}
+.logo-text{font-size:17px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--text);letter-spacing:.04em}
+.logo-sub{font-size:11px;color:var(--muted);font-family:'Open Sans',sans-serif;margin-top:3px}
+.sidebar-nav{padding:14px 10px;flex:1}
+.nav-label{font-size:10px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--muted2);letter-spacing:.1em;text-transform:uppercase;padding:0 10px;margin:18px 0 6px}
+.nav-label:first-child{margin-top:0}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius);cursor:pointer;color:var(--muted);font-size:13px;font-weight:600;font-family:'Open Sans',sans-serif;transition:all .15s;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{color:var(--text);background:var(--bg3)}
+.nav-item.active{color:var(--text);background:var(--accent-bg);border:1px solid rgba(131,195,65,0.25)}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;opacity:.7}
+.nav-item.active svg{opacity:1;color:var(--accent)}
+.nav-item.nav-dziennik.active svg{color:var(--navy)}
+.nav-item.nav-dziennik.active{background:var(--blue-bg);border-color:rgba(57,67,146,0.25);color:var(--text)}
+.nav-item.nav-meta.active svg{color:var(--meta)}
+.nav-item.nav-meta.active{background:var(--meta-bg);border-color:rgba(123,97,255,0.3);color:var(--text)}
+.platform-badge{font-size:11px;font-weight:700;padding:3px 11px;border-radius:20px;font-family:'Open Sans',sans-serif;vertical-align:middle;margin-left:2px}
+.platform-badge:empty{display:none;padding:0;margin:0}
+.platform-badge.google{background:var(--accent-bg);color:var(--green-dark)}
+.platform-badge.meta{background:var(--meta-bg);color:var(--meta)}
+.platform-badge.tools{background:var(--blue-bg);color:var(--navy)}
+.sidebar-footer{padding:12px 10px;border-top:1px solid var(--border)}
+.refresh-btn{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:var(--radius);cursor:pointer;color:var(--text);font-size:12px;font-weight:600;background:none;border:1px solid var(--border2);width:100%;transition:all .15s;font-family:'Open Sans',sans-serif}
+.refresh-btn:hover{border-color:var(--accent);color:var(--accent)}
+.refresh-btn svg{width:14px;height:14px}
+.refresh-btn.loading svg{animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.last-update{font-size:10px;color:var(--muted2);padding:6px 10px 0;font-family:'Open Sans',sans-serif}
+
+/* ── HEADER ── */
+.header{padding:20px 28px 16px;border-bottom:2px solid var(--border);display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:var(--bg)}
+.header-title{font-size:20px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--text);flex:1;min-width:160px}
+.header-filters{display:flex;gap:8px;flex-wrap:wrap}
+select{background:var(--bg);border:1px solid var(--border2);color:var(--text);font-size:12px;font-weight:600;padding:7px 28px 7px 10px;border-radius:var(--radius);cursor:pointer;font-family:'Open Sans',sans-serif;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23404041' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+select:focus{outline:none;border-color:var(--accent)}
+.search-input{background:var(--bg);border:1px solid var(--border2);color:var(--text);font-size:12px;padding:7px 10px 7px 30px;border-radius:var(--radius);font-family:'Open Sans',sans-serif;width:200px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:10px center}
+.search-input:focus{outline:none;border-color:var(--accent)}
+.search-input::placeholder{color:var(--muted2)}
+.results-count{font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap;padding:0 2px}
+.results-count:empty{display:none}
+
+/* ── CONTENT ── */
+.content{padding:24px 28px}
+.page{display:none}.page.active{display:block}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.kpi-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:0 2px 6px rgba(0,0,0,0.04)}
+.kpi-label{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;font-family:'Open Sans',sans-serif;text-transform:uppercase;letter-spacing:.04em}
+.kpi-val{font-size:24px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--text);line-height:1}
+.kpi-card.accent-red{border-color:rgba(192,57,43,0.3);background:rgba(192,57,43,0.04);border-left:3px solid var(--red)}
+.kpi-card.accent-amber{border-color:rgba(254,149,0,0.3);background:rgba(254,149,0,0.04);border-left:3px solid var(--amber)}
+.section{margin-bottom:24px}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.section-title{font-size:13px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em}
+
+/* ── TABELE ── */
+.table-wrap{border:1px solid var(--border);border-radius:var(--radius-lg);overflow-x:auto;overflow-y:visible;box-shadow:0 2px 6px rgba(0,0,0,0.03);position:relative;
+  background-color:var(--bg);
+  background-image:
+    linear-gradient(to right, var(--bg) 30%, rgba(255,255,255,0)),
+    linear-gradient(to left, var(--bg) 30%, rgba(255,255,255,0)),
+    linear-gradient(to right, rgba(0,0,0,.12), rgba(0,0,0,0)),
+    linear-gradient(to left, rgba(0,0,0,.12), rgba(0,0,0,0));
+  background-repeat:no-repeat;
+  background-size:28px 100%, 28px 100%, 10px 100%, 10px 100%;
+  background-position:0 0, 100% 0, 0 0, 100% 0;
+  background-attachment:local, local, scroll, scroll;
+}
+mark.search-hl{background:rgba(131,195,65,.4);color:inherit;border-radius:3px;padding:0 1px;font-weight:700}
+.table-wrap::-webkit-scrollbar{height:7px}
+.table-wrap::-webkit-scrollbar-track{background:var(--bg3);border-radius:0 0 var(--radius-lg) var(--radius-lg)}
+.table-wrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.table-wrap::-webkit-scrollbar-thumb:hover{background:var(--muted2)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--bg2);padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap;border-bottom:2px solid var(--border);font-family:'Open Sans',sans-serif;position:sticky;top:0;z-index:1;text-transform:uppercase;letter-spacing:.04em}
+tbody td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text);font-family:'Open Sans',sans-serif;font-weight:400;white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--bg2)}
+/* ── FROZEN FIRST COLUMN ── */
+tbody td:first-child,thead th:first-child{position:sticky;left:0;z-index:2;background:var(--bg)}
+thead th:first-child{background:var(--bg2);z-index:3}
+tbody tr:hover td:first-child{background:var(--bg2)}
+.table-wrap table{border-collapse:separate;border-spacing:0}
+tbody td:first-child{box-shadow:2px 0 4px rgba(0,0,0,0.06)}
+thead th:first-child{box-shadow:2px 0 4px rgba(0,0,0,0.06)}
+.mono{font-family:'Open Sans',sans-serif;font-size:13px}
+
+/* ── WYRÓWNANIE KOMÓREK LICZBOWYCH DO PRAWEJ ──
+   Każda komórka (poza pierwszą, przypiętą kolumną) zawierająca badge/wartość liczbową/
+   metrykę wyrównuje się do prawej — standardowy wzorzec czytelności w tabelach danych
+   (tak samo robi to Google Sheets). Czysto wizualne — nie dotyka logiki formatCell/
+   renderDynamicTable, tylko wykorzystuje klasy, które ta logika już nadaje elementom. */
+.table-wrap td.mono,
+.table-wrap td:not(:first-child):has(.badge, .mono, .metric-empty, .metric-gray, .metric-green, .metric-red, .metric-amber, .delta-up, .delta-down, .delta-flat) {
+  text-align: right;
+}
+
+/* ── SORTOWANIE KOLUMN ── */
+thead th.sortable{cursor:pointer;user-select:none}
+thead th.sortable:hover{color:var(--text);background:var(--bg3)}
+thead th.sortable .sort-arrow{display:inline-block;margin-left:5px;font-size:10px}
+thead th.sortable.sort-asc .sort-arrow::after{content:'\25B2';opacity:1;color:var(--navy)}
+thead th.sortable.sort-desc .sort-arrow::after{content:'\25BC';opacity:1;color:var(--navy)}
+thead th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow::after{content:'\21C5';opacity:.35}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;font-size:11px;padding:2px 10px;border-radius:20px;font-weight:700;font-family:'Open Sans',sans-serif}
+.b-green{background:var(--green-bg);color:var(--green-dark);border:1px solid rgba(131,195,65,0.4)}
+.b-amber{background:var(--amber-bg);color:#C07A00;border:1px solid rgba(254,149,0,0.4)}
+.b-red{background:var(--red-bg);color:var(--red);border:1px solid rgba(192,57,43,0.4)}
+.b-muted{background:var(--bg3);color:var(--muted);border:1px solid var(--border2)}
+.b-navy{background:var(--blue-bg);color:var(--navy);border:1px solid rgba(57,67,146,0.3)}
+.delta-up{color:var(--green-dark);font-weight:700}
+.delta-down{color:var(--red);font-weight:700}
+.delta-flat{color:var(--muted2)}
+.metric-green{color:var(--green-dark);font-weight:700}
+.metric-amber{color:#C07A00;font-weight:700}
+.metric-red{color:var(--red);font-weight:700}
+.metric-gray{color:var(--muted);font-weight:600}
+.metric-empty{color:var(--muted2)}
+
+@media(max-width:760px){.sidebar{display:none}}
+.spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+
+/* ── PRZYCISK NOTATKI W TABELI ── */
+.note-btn{background:none;border:none;cursor:pointer;font-size:13px;padding:2px 6px;border-radius:4px;color:var(--muted);transition:all .15s;line-height:1}
+.note-btn:hover{background:var(--blue-bg);color:var(--navy)}
+.note-btn.has-notes{color:var(--navy);opacity:.9}
+
+/* ═══════════════════════════════════════
+   DZIENNIK ZMIAN
+═══════════════════════════════════════ */
+#page-dziennik{display:none}
+#page-dziennik.active{display:block}
+
+.dziennik-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:900px){.dziennik-layout{grid-template-columns:1fr}}
+
+.dziennik-form-panel{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px;box-shadow:0 2px 8px rgba(0,0,0,0.04);position:sticky;top:20px}
+.dziennik-form-title{font-size:13px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.dziennik-form-title svg{width:14px;height:14px;color:var(--navy);opacity:.8}
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;font-family:'Open Sans',sans-serif}
+.form-select{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);font-size:13px;font-weight:600;padding:9px 28px 9px 10px;border-radius:var(--radius);cursor:pointer;font-family:'Open Sans',sans-serif;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23404041' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;transition:border-color .15s}
+.form-select:focus{outline:none;border-color:var(--navy)}
+.form-select:disabled{opacity:.55;cursor:not-allowed}
+.form-textarea{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);font-size:13px;padding:9px 10px;border-radius:var(--radius);font-family:'Open Sans',sans-serif;resize:vertical;min-height:100px;line-height:1.55;transition:border-color .15s}
+.form-textarea:focus{outline:none;border-color:var(--navy)}
+.form-textarea::placeholder{color:var(--muted2)}
+.btn-save{width:100%;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:700;font-family:'Montserrat',sans-serif;cursor:pointer;transition:all .15s;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px}
+.btn-save:hover{background:#2d3680;box-shadow:0 4px 12px rgba(57,67,146,0.25)}
+.btn-save:disabled{background:var(--muted2);cursor:not-allowed;box-shadow:none}
+.btn-save svg{width:14px;height:14px}
+.btn-save.saving svg{animation:spin .7s linear infinite}
+.form-feedback{margin-top:10px;font-size:12px;font-family:'Open Sans',sans-serif;min-height:18px;text-align:center}
+.form-feedback.ok{color:var(--green-dark)}
+.form-feedback.err{color:var(--red)}
+
+.dziennik-list-panel{}
+.dziennik-list-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.dziennik-count{font-size:11px;font-weight:700;color:var(--muted);background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:3px 12px;font-family:'Open Sans',sans-serif}
+.dziennik-filters{display:flex;gap:8px;flex:1;flex-wrap:wrap}
+.dz-filter{background:var(--bg);border:1px solid var(--border2);color:var(--text);font-size:12px;font-weight:600;padding:7px 28px 7px 10px;border-radius:var(--radius);cursor:pointer;font-family:'Open Sans',sans-serif;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23404041' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;min-width:130px}
+.dz-filter:focus{outline:none;border-color:var(--navy)}
+.dz-search{background:var(--bg);border:1px solid var(--border2);color:var(--text);font-size:12px;padding:7px 10px 7px 30px;border-radius:var(--radius);font-family:'Open Sans',sans-serif;flex:1;min-width:140px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:10px center}
+.dz-search:focus{outline:none;border-color:var(--navy)}
+.dz-search::placeholder{color:var(--muted2)}
+
+.notes-list{display:flex;flex-direction:column;gap:10px}
+.note-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:0 2px 6px rgba(0,0,0,0.03);border-left:4px solid var(--navy);transition:box-shadow .15s}
+.note-card:hover{box-shadow:0 4px 14px rgba(0,0,0,0.08)}
+.note-card-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.note-date{font-size:11px;color:var(--muted2);font-family:'Open Sans',sans-serif}
+.note-konto-badge{font-size:11px;padding:2px 10px;border-radius:20px;font-weight:700;font-family:'Open Sans',sans-serif;background:var(--blue-bg);color:var(--navy);border:1px solid rgba(57,67,146,0.25)}
+.note-platforma-badge{font-size:11px;padding:2px 10px;border-radius:20px;font-weight:700;font-family:'Open Sans',sans-serif}
+.note-platforma-badge.google{background:var(--accent-bg);color:var(--green-dark);border:1px solid rgba(131,195,65,.35)}
+.note-platforma-badge.meta{background:var(--meta-bg);color:var(--meta);border:1px solid rgba(123,97,255,.3)}
+.note-actions{margin-left:auto;display:flex;gap:4px}
+.note-del-btn{background:none;border:none;cursor:pointer;font-size:12px;padding:3px 7px;border-radius:4px;color:var(--muted2);transition:all .15s;font-family:'Open Sans',sans-serif;font-weight:600}
+.note-del-btn:hover{background:var(--red-bg);color:var(--red)}
+.note-tresc{font-size:13px;color:var(--text);font-family:'Open Sans',sans-serif;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.note-entries{display:flex;flex-direction:column;gap:7px}
+.note-entry{display:flex;gap:10px;align-items:baseline;font-size:13px;font-family:'Open Sans',sans-serif;line-height:1.55}
+.note-entry-time{font-size:11px;font-weight:700;color:var(--navy);background:var(--blue-bg);border:1px solid rgba(57,67,146,.2);border-radius:4px;padding:1px 7px;white-space:nowrap;flex-shrink:0}
+.note-entry-text{color:var(--text);white-space:pre-wrap;word-break:break-word}
+.note-entry-count{font-size:10px;font-weight:700;color:var(--muted);background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;margin-left:auto}
+.notes-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--muted);gap:10px;text-align:center;background:var(--bg2);border:1px dashed var(--border2);border-radius:var(--radius-lg)}
+.notes-empty svg{width:32px;height:32px;opacity:.35}
+.notes-empty p{font-size:13px}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--text);color:#fff;padding:12px 20px;border-radius:var(--radius);font-size:13px;font-weight:600;font-family:'Open Sans',sans-serif;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.18);transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{background:var(--green-dark)}
+.toast.err{background:var(--red)}
+
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:8888;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.confirm-overlay.show{opacity:1;pointer-events:all}
+.confirm-box{background:var(--bg);border-radius:var(--radius-lg);padding:28px 32px;box-shadow:0 8px 32px rgba(0,0,0,.18);max-width:360px;width:90%;transform:scale(.95);transition:transform .2s}
+.confirm-overlay.show .confirm-box{transform:scale(1)}
+.confirm-title{font-size:15px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--text);margin-bottom:8px}
+.confirm-desc{font-size:13px;color:var(--muted);font-family:'Open Sans',sans-serif;margin-bottom:22px;line-height:1.5}
+.confirm-actions{display:flex;gap:10px;justify-content:flex-end}
+.confirm-cancel{padding:9px 20px;background:none;border:1px solid var(--border2);border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;font-family:'Open Sans',sans-serif;color:var(--text);transition:all .15s}
+.confirm-cancel:hover{border-color:var(--muted);background:var(--bg2)}
+.confirm-ok{padding:9px 20px;background:var(--red);border:none;border-radius:var(--radius);font-size:13px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;color:#fff;transition:all .15s}
+.confirm-ok:hover{background:#a93226}
+
+.notes-loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px;color:var(--muted);font-size:13px;font-family:'Open Sans',sans-serif}
+.notes-loading .spinner{border-top-color:var(--navy)}
+
+.webapp-banner{background:var(--blue-bg);border:1px solid rgba(57,67,146,.25);border-radius:var(--radius);padding:12px 16px;margin-bottom:20px;font-size:12px;font-family:'Open Sans',sans-serif;color:var(--navy);display:flex;align-items:center;gap:10px}
+.webapp-banner svg{width:16px;height:16px;flex-shrink:0}
+.webapp-banner strong{font-weight:700}
+.webapp-banner a{color:var(--navy);text-decoration:underline;cursor:pointer}
+.data-notice{padding:12px 16px;margin-bottom:18px;background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--radius);font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.data-notice[hidden]{display:none}
+.last-update{line-height:1.6;overflow-wrap:anywhere}
+.table-message{white-space:normal;text-align:center;padding:24px;color:var(--muted);line-height:1.6}
+.comparison-legend{margin-bottom:18px;font-size:12px;color:var(--muted);line-height:1.65}
+.comparison-legend[hidden]{display:none}
+.comparison-legend summary{cursor:pointer;font-weight:600;color:var(--text);width:fit-content}
+.comparison-legend p{padding-top:8px;max-width:1000px}
+
+/* ═══════════════════════════════════════════════════════
+   RESPONSYWNE TABELE — STABILNA WERSJA
+   Zachowuje naturalne szerokosci kolumn i jeden natywny scrollbar.
+   ═══════════════════════════════════════════════════════ */
+.shell{min-width:0}
+.main{flex:1 1 auto;min-width:0;width:auto}
+.content,.section,.page{min-width:0;max-width:100%}
+
+.table-wrap{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  max-height:calc(100vh - 235px);
+  max-height:calc(100dvh - 235px);
+  overflow-x:scroll;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+  scrollbar-width:auto;
+  scrollbar-color:var(--border2) var(--bg3);
+  -webkit-overflow-scrolling:touch;
+}
+
+/* Nie sciskaj kolumn do szerokosci viewportu. Jesli potrzebuja wiecej miejsca,
+   tabela staje sie szersza od kontenera i przewija sie poziomo. */
+.table-wrap table{
+  width:max-content;
+  min-width:100%;
+  table-layout:auto;
+}
+
+.table-wrap::-webkit-scrollbar{width:12px;height:12px}
+.table-wrap::-webkit-scrollbar-track{background:var(--bg3)}
+.table-wrap::-webkit-scrollbar-thumb{
+  background:var(--border2);
+  border-radius:999px;
+  border:2px solid var(--bg3);
+}
+.table-wrap::-webkit-scrollbar-thumb:hover{background:var(--muted2)}
+.table-wrap::-webkit-scrollbar-corner{background:var(--bg3)}
+
+@media(max-width:1400px){
+  .content{padding:20px 18px}
+  .header{padding:18px 18px 14px}
+  .table-wrap{max-height:calc(100vh - 220px);max-height:calc(100dvh - 220px)}
+}
+@media(max-width:1000px){
+  .sidebar{width:190px}
+  .content{padding:16px 12px}
+  .header{padding:14px 12px 12px;gap:10px}
+  .search-input{width:min(100%,260px)}
+  .table-wrap{max-height:calc(100vh - 200px);max-height:calc(100dvh - 200px)}
+}
+@media(max-width:760px){
+  .main{width:100%}
+  .content{padding:12px 8px}
+  .header{padding:12px 8px 10px}
+  .header-filters{width:100%}
+  .search-input{width:100%}
+  .table-wrap{max-height:calc(100vh - 185px);max-height:calc(100dvh - 185px)}
+  .table-wrap::-webkit-scrollbar{width:14px;height:14px}
+}
+
+/* ═══════════════════════════════════════════════════════
+   BRAND REFRESH V1.2 — FOUNDATION
+   Zakres: sidebar, topbar i wspólny styl tabel.
+   Bez zmian logiki danych, bez KPI i bez przebudowy struktury tabel.
+   ═══════════════════════════════════════════════════════ */
+:root{
+  --brand-charcoal:#404041;
+  --brand-green:#83C341;
+  --brand-green-dark:#2F9764;
+  --brand-blue:#394392;
+  --brand-orange:#FE9500;
+  --brand-gray:#888888;
+  --brand-surface:#F7F8F6;
+  --brand-surface-2:#FBFCFA;
+  --brand-line:#E5E7E3;
+  --brand-line-strong:#D8DCD4;
+  --brand-soft-green:rgba(131,195,65,.085);
+  --brand-soft-blue:rgba(57,67,146,.075);
+  --brand-row-hover:rgba(131,195,65,.035);
+  --meta:#394392;
+  --meta-bg:rgba(57,67,146,.08);
+  --border:#E5E7E3;
+  --border2:#D8DCD4;
+  --bg2:#F7F8F6;
+  --bg3:#F0F2EE;
+  --radius:7px;
+  --radius-lg:9px;
+}
+
+body{background:#fff;color:var(--brand-charcoal);}
+.shell{background:#fff}
+
+/* ── SIDEBAR: węższy, lżejszy, bardziej CRM niż panel kafelkowy ── */
+.sidebar{
+  width:198px;
+  background:#fff;
+  border-right:1px solid var(--brand-line);
+  box-shadow:4px 0 20px rgba(64,64,65,.02);
+}
+.sidebar-logo{
+  min-height:62px;
+  padding:13px 14px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  border-bottom:1px solid var(--brand-line);
+}
+.brand-mark{
+  width:31px;height:31px;border-radius:50%;
+  display:grid;place-items:center;
+  border:2px solid var(--brand-green);
+  position:relative;flex:0 0 auto;
+}
+.brand-mark::before{
+  content:'';width:12px;height:12px;border:3px solid var(--brand-green);border-radius:50%;
+}
+.brand-mark span{
+  position:absolute;width:9px;height:3px;background:var(--brand-green);border-radius:2px;
+  right:0;bottom:3px;transform:rotate(-45deg);transform-origin:left center;
+}
+.brand-copy{min-width:0}
+.logo-text{
+  font-family:'Montserrat',sans-serif;
+  font-size:14px;font-weight:700;letter-spacing:.025em;line-height:1.1;color:var(--brand-charcoal)
+}
+.logo-sub{
+  font-family:'Open Sans',sans-serif;
+  font-size:8.5px;letter-spacing:.075em;text-transform:uppercase;margin-top:4px;color:#989899
+}
+.sidebar-nav{padding:9px 7px 14px}
+.nav-label{
+  font-family:'Montserrat',sans-serif;
+  font-size:8.5px;font-weight:700;letter-spacing:.115em;text-transform:uppercase;
+  color:#9A9A9A;padding:0 10px;margin:17px 0 5px
+}
+.nav-label:first-child{margin-top:4px}
+.nav-item{
+  min-height:34px;
+  padding:7px 9px 7px 11px;
+  gap:8px;
+  border-radius:6px;
+  border:0;
+  color:#707071;
+  font-size:12px;
+  font-weight:600;
+  position:relative;
+  transition:background-color .14s,color .14s;
+}
+.nav-item svg{
+  width:15px;height:15px;opacity:.78;stroke-width:1.8;
+}
+.nav-item::before{
+  content:'';position:absolute;left:0;top:6px;bottom:6px;width:3px;
+  border-radius:0 3px 3px 0;background:transparent
+}
+.nav-item:hover{background:#F7F8F6;color:var(--brand-charcoal)}
+.nav-item.active{
+  background:var(--brand-soft-green);
+  color:var(--brand-charcoal);
+  border:0;
+}
+.nav-item.active::before{background:var(--brand-green)}
+.nav-item.active svg{color:var(--brand-green);opacity:1}
+.nav-item.nav-meta.active{
+  background:var(--brand-soft-blue);border:0;color:var(--brand-charcoal)
+}
+.nav-item.nav-meta.active::before{background:var(--brand-blue)}
+.nav-item.nav-meta.active svg{color:var(--brand-blue)}
+.nav-item.nav-dziennik.active{background:var(--brand-soft-blue);border:0}
+.nav-item.nav-dziennik.active::before{background:var(--brand-blue)}
+.nav-item.nav-dziennik.active svg{color:var(--brand-blue)}
+.sidebar-footer{padding:10px;border-top:1px solid var(--brand-line);background:#FCFCFB}
+.refresh-btn{
+  min-height:34px;padding:7px 9px;border:1px solid var(--brand-line-strong);border-radius:6px;
+  background:#fff;font-size:11px;justify-content:center;color:#646465
+}
+.refresh-btn:hover{
+  border-color:rgba(131,195,65,.65);background:var(--brand-soft-green);color:var(--brand-charcoal)
+}
+.last-update{padding:5px 1px 0;font-size:9px;color:#9A9A9A;text-align:center}
+
+/* ── TOPBAR: jeden kompaktowy pasek roboczy ── */
+.header{
+  min-height:60px;
+  padding:8px 20px;
+  gap:16px;
+  flex-wrap:nowrap;
+  border-bottom:1px solid var(--brand-line);
+  background:rgba(255,255,255,.98);
+  position:sticky;top:0;z-index:20;
+  backdrop-filter:saturate(1.05) blur(7px);
+}
+.header-heading{flex:1;min-width:0}
+.header-title-row{display:flex;align-items:center;gap:8px;min-width:0}
+.header-title{
+  font-family:'Montserrat',sans-serif;
+  font-size:18px;line-height:1.1;font-weight:700;letter-spacing:-.012em;
+  min-width:0;flex:0 1 auto;color:var(--brand-charcoal)
+}
+.header-subtitle{
+  font-size:10.5px;line-height:1.35;color:var(--brand-gray);margin-top:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.platform-badge{
+  font-size:8.5px;font-weight:700;padding:2px 7px;border-radius:999px;
+  letter-spacing:.035em;text-transform:uppercase;border:1px solid transparent;margin-left:0
+}
+.platform-badge.google{
+  background:var(--brand-soft-green);color:var(--brand-green-dark);border-color:rgba(131,195,65,.22)
+}
+.platform-badge.meta{
+  background:var(--brand-soft-blue);color:var(--brand-blue);border-color:rgba(57,67,146,.16)
+}
+.header-filters{align-items:center;justify-content:flex-end;gap:9px;flex-wrap:nowrap}
+.results-count{font-size:10px;color:var(--brand-gray);font-weight:600;padding:0 1px}
+.search-input{
+  width:236px;height:34px;padding-top:6px;padding-bottom:6px;
+  border:1px solid var(--brand-line-strong);border-radius:7px;background-color:#fff;
+  font-size:11.5px;transition:border-color .15s,box-shadow .15s
+}
+.search-input:focus{
+  border-color:var(--brand-green);box-shadow:0 0 0 3px rgba(131,195,65,.09)
+}
+
+/* ── CONTENT: więcej miejsca dla danych, mniej pustej przestrzeni ── */
+.content{padding:16px 20px;background:#FCFCFB}
+.section{margin-bottom:16px}
+.section-header{margin-bottom:7px}
+.section-title{
+  font-family:'Montserrat',sans-serif;
+  font-size:9.5px;font-weight:700;letter-spacing:.08em;color:#747475
+}
+.overview-page .section{margin-bottom:0}
+
+/* ── TABELE: lekkie, gęste, bez wizualnej siatki Excela ── */
+.table-wrap{
+  border:1px solid var(--brand-line);
+  border-radius:8px;
+  box-shadow:none;
+  background:#fff;
+  background-image:none;
+}
+.table-wrap table{
+  width:max-content;
+  min-width:100%;
+  table-layout:auto;
+  border-collapse:separate;
+  border-spacing:0;
+}
+table{font-size:12.5px}
+thead th{
+  background:#F7F8F6;
+  padding:8px 11px;
+  height:34px;
+  color:#686869;
+  border-bottom:1px solid var(--brand-line-strong);
+  font-family:'Open Sans',sans-serif;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.012em;
+  line-height:1.2;
+  text-transform:none;
+}
+tbody td{
+  padding:7px 11px;
+  height:35px;
+  border-bottom:1px solid #ECEEE9;
+  color:#4A4A4B;
+  font-size:12px;
+  line-height:1.25;
+}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--brand-row-hover)}
+tbody tr:hover td:first-child{background:#F9FBF6}
+
+/* Pierwsza kolumna pozostaje przyklejona jak wcześniej, ale wygląda lżej. */
+tbody td:first-child{
+  font-weight:600;
+  color:var(--brand-charcoal);
+  background:#fff;
+  box-shadow:1px 0 0 var(--brand-line),4px 0 8px rgba(64,64,65,.025)
+}
+thead th:first-child{
+  background:#F7F8F6;
+  box-shadow:1px 0 0 var(--brand-line),4px 0 8px rgba(64,64,65,.025)
+}
+
+/* Dane liczbowe pozostają czytelne i wyrównane jak w narzędziach analitycznych. */
+.table-wrap td.mono,
+.table-wrap td:not(:first-child):has(.badge, .mono, .metric-empty, .metric-gray, .metric-green, .metric-red, .metric-amber, .delta-up, .delta-down, .delta-flat){
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+}
+.mono{font-size:12px;font-variant-numeric:tabular-nums}
+
+/* Sortowanie pozostaje widoczne, ale bez ciężkiego efektu przy hoverze. */
+thead th.sortable:hover{background:#F0F2EE;color:var(--brand-charcoal)}
+thead th.sortable.sort-asc .sort-arrow::after,
+thead th.sortable.sort-desc .sort-arrow::after{color:var(--brand-green-dark)}
+
+/* Statusy: kolor tylko jako sygnał decyzyjny. */
+.badge{font-size:9.5px;padding:2px 7px;border-radius:999px;line-height:1.25}
+.b-green{background:rgba(131,195,65,.09);color:#397722;border-color:rgba(131,195,65,.30)}
+.b-amber{background:rgba(254,149,0,.08);color:#A76400;border-color:rgba(254,149,0,.28)}
+.b-red{background:rgba(192,57,43,.07);color:#AD3B31;border-color:rgba(192,57,43,.24)}
+.metric-green{color:#397722}
+.metric-amber{color:#A76400}
+.metric-red{color:#AD3B31}
+.metric-gray{color:#565657;font-weight:600}
+.metric-empty{color:#A7A7A7}
+mark.search-hl{background:rgba(131,195,65,.22);border-radius:2px}
+
+/* Jeden natywny scrollbar, stale w obrębie tabeli. */
+.table-wrap::-webkit-scrollbar{width:10px;height:10px}
+.table-wrap::-webkit-scrollbar-track{background:#F2F3F0}
+.table-wrap::-webkit-scrollbar-thumb{
+  background:#C7CBC3;border-radius:999px;border:2px solid #F2F3F0
+}
+.table-wrap::-webkit-scrollbar-thumb:hover{background:#AEB4AA}
+.table-wrap::-webkit-scrollbar-corner{background:#F2F3F0}
+
+@media(max-width:1200px){
+  .sidebar{width:188px}
+  .header{padding:8px 14px}
+  .content{padding:14px}
+  .search-input{width:210px}
+}
+@media(max-width:900px){
+  .header{min-height:58px;flex-wrap:wrap;gap:7px}
+  .header-heading{width:100%}
+  .header-filters{width:100%;justify-content:flex-start}
+  .search-input{width:min(100%,320px)}
+}
+@media(max-width:760px){
+  .main{width:100%}
+  .content{padding:10px 8px}
+  .header{position:sticky;top:0;padding:8px 8px}
+  .header-title{font-size:17px}
+  .header-subtitle{white-space:normal}
+}
+
+/* ═══════════════════════════════════════════════════════
+   BRAND REFRESH V1.3 — STICKY META + KRÓTSZE NAGŁÓWKI
+   ═══════════════════════════════════════════════════════ */
+
+/* Krótkie nagłówki pozostają czytelne; "i" sygnalizuje objaśnienie w tooltipie. */
+thead th .th-label{vertical-align:middle}
+.col-help{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:13px;
+  height:13px;
+  margin-left:5px;
+  border:1px solid #C8CCC4;
+  border-radius:50%;
+  color:#8A8D87;
+  font-size:8px;
+  font-weight:700;
+  line-height:1;
+  vertical-align:middle;
+  transform:translateY(-.5px);
+}
+thead th.sortable:hover .col-help{border-color:#AEB4AA;color:#5E625B}
+
+/*
+   Meta Ads: konto + zestaw reklam zostają widoczne podczas poziomego przewijania.
+   Stałe szerokości zapewniają stabilny offset drugiej kolumny także wtedy, gdy
+   tabela została wyrenderowana w ukrytej zakładce.
+*/
+.table-wrap table.meta-two-sticky{
+  --meta-account-col:180px;
+  --meta-adset-col:250px;
+}
+.table-wrap table.meta-two-sticky thead th:first-child,
+.table-wrap table.meta-two-sticky tbody td:first-child{
+  width:var(--meta-account-col);
+  min-width:var(--meta-account-col);
+  max-width:var(--meta-account-col);
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.table-wrap table.meta-two-sticky thead th:nth-child(2),
+.table-wrap table.meta-two-sticky tbody td:nth-child(2){
+  position:sticky;
+  left:var(--meta-account-col);
+  width:var(--meta-adset-col);
+  min-width:var(--meta-adset-col);
+  max-width:var(--meta-adset-col);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  background:#fff;
+  z-index:2;
+}
+.table-wrap table.meta-two-sticky thead th:nth-child(2){
+  background:#F7F8F6;
+  z-index:4;
+  box-shadow:1px 0 0 var(--brand-line),5px 0 9px rgba(64,64,65,.035);
+}
+.table-wrap table.meta-two-sticky tbody td:nth-child(2){
+  box-shadow:1px 0 0 var(--brand-line),5px 0 9px rgba(64,64,65,.025);
+}
+.table-wrap table.meta-two-sticky tbody tr:hover td:nth-child(2){background:var(--brand-row-hover)}
+.table-wrap table.meta-two-sticky thead th:first-child{z-index:5}
+.table-wrap table.meta-two-sticky tbody td:first-child{z-index:3}
+
+/* Na bardzo małych ekranach zostawiamy sticky tylko dla konta, żeby nie zabierać viewportu. */
+@media(max-width:900px){
+  .table-wrap table.meta-two-sticky{
+    --meta-account-col:150px;
+  }
+  .table-wrap table.meta-two-sticky thead th:nth-child(2),
+  .table-wrap table.meta-two-sticky tbody td:nth-child(2){
+    position:static;
+    width:auto;
+    min-width:210px;
+    max-width:none;
+    box-shadow:none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   BRAND REFRESH V1.4 — WYRÓWNANIE I PROPORCJE KOLUMN
+   ═══════════════════════════════════════════════════════ */
+
+/* Opisy czytamy od lewej; liczby i wskaźniki tworzą regularną siatkę. */
+.table-wrap th.col-text,
+.table-wrap td.col-text{
+  text-align:left;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.table-wrap th.col-metric,
+.table-wrap td.col-metric{
+  text-align:center !important;
+  white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+}
+
+/* Sensowne szerokości zamiast pozwalania jednej kolumnie przejąć wolną przestrzeń. */
+.table-wrap th.col-account,
+.table-wrap td.col-account{
+  width:220px;
+  min-width:180px;
+  max-width:260px;
+}
+.table-wrap th.col-adset,
+.table-wrap td.col-adset{
+  width:250px;
+  min-width:220px;
+  max-width:300px;
+}
+.table-wrap th.col-goal,
+.table-wrap td.col-goal{
+  width:190px;
+  min-width:170px;
+  max-width:220px;
+}
+.table-wrap th.col-metric,
+.table-wrap td.col-metric{
+  min-width:124px;
+}
+
+/* Meta Dzienny ma mało kolumn, więc rozkładamy je świadomie na całą szerokość. */
+#page-metaDzienny .table-wrap table.table-meta-daily{
+  width:100%;
+  min-width:900px;
+  table-layout:fixed;
+}
+#page-metaDzienny .table-wrap table.table-meta-daily.meta-two-sticky{
+  --meta-account-col:18%;
+  --meta-adset-col:24%;
+}
+#page-metaDzienny .table-wrap table.table-meta-daily th.col-goal,
+#page-metaDzienny .table-wrap table.table-meta-daily td.col-goal{
+  width:20%;
+  min-width:180px;
+  max-width:none;
+}
+#page-metaDzienny .table-wrap table.table-meta-daily th.col-metric,
+#page-metaDzienny .table-wrap table.table-meta-daily td.col-metric{
+  width:19%;
+  min-width:150px;
+}
+
+/* Dwie sticky kolumny Meta nadal zachowują stabilne szerokości w szerokich tabelach. */
+.table-wrap table.meta-two-sticky:not(.table-meta-daily) th.col-account,
+.table-wrap table.meta-two-sticky:not(.table-meta-daily) td.col-account{
+  width:var(--meta-account-col);
+  min-width:var(--meta-account-col);
+  max-width:var(--meta-account-col);
+}
+.table-wrap table.meta-two-sticky:not(.table-meta-daily) th.col-adset,
+.table-wrap table.meta-two-sticky:not(.table-meta-daily) td.col-adset{
+  width:var(--meta-adset-col);
+  min-width:var(--meta-adset-col);
+  max-width:var(--meta-adset-col);
+}
+
+/* Przeglądy statyczne korzystają z tej samej zasady wyrównania. */
+#statusTableSection thead th:first-child,
+#statusBody td:first-child,
+#page-metaOverview thead th:nth-child(-n+2),
+#metaOverviewBody td:nth-child(-n+2){
+  text-align:left;
+}
+#statusTableSection thead th:not(:first-child),
+#statusBody td:not(:first-child),
+#page-metaOverview thead th:nth-child(n+3),
+#metaOverviewBody td:nth-child(n+3){
+  text-align:center !important;
+  font-variant-numeric:tabular-nums;
+}
+
+/* Tooltip z pełną treścią bierze się z atrybutu title; ellipsis jest tylko wizualny. */
+.table-wrap td.col-text{cursor:default}
+
+@media(max-width:1200px){
+  .table-wrap th.col-account,
+  .table-wrap td.col-account{width:200px;max-width:220px}
+  .table-wrap th.col-adset,
+  .table-wrap td.col-adset{width:230px;min-width:210px;max-width:250px}
+  .table-wrap th.col-goal,
+  .table-wrap td.col-goal{width:180px;min-width:165px;max-width:200px}
+}
+
+@media(max-width:900px){
+  #page-metaDzienny .table-wrap table.table-meta-daily{
+    width:max-content;
+    min-width:820px;
+    table-layout:auto;
+  }
+  #page-metaDzienny .table-wrap table.table-meta-daily th.col-account,
+  #page-metaDzienny .table-wrap table.table-meta-daily td.col-account{width:150px;min-width:150px;max-width:150px}
+  #page-metaDzienny .table-wrap table.table-meta-daily th.col-adset,
+  #page-metaDzienny .table-wrap table.table-meta-daily td.col-adset{width:220px;min-width:220px;max-width:220px}
+  #page-metaDzienny .table-wrap table.table-meta-daily th.col-goal,
+  #page-metaDzienny .table-wrap table.table-meta-daily td.col-goal{width:180px;min-width:180px;max-width:180px}
+  #page-metaDzienny .table-wrap table.table-meta-daily th.col-metric,
+  #page-metaDzienny .table-wrap table.table-meta-daily td.col-metric{width:135px;min-width:135px}
+}
+
+/* ═══════════════════════════════════════════════════════
+   BRAND REFRESH V1.5 — RĘCZNE SZEROKOŚCI KOLUMN
+   ═══════════════════════════════════════════════════════ */
+
+/* Krawędź nagłówka działa jak uchwyt resize; nie konkuruje z kliknięciem sortowania. */
+.table-wrap thead th{position:sticky}
+.col-resizer{
+  position:absolute;
+  top:0;
+  right:-4px;
+  bottom:0;
+  width:9px;
+  z-index:8;
+  cursor:col-resize;
+  touch-action:none;
+  user-select:none;
+}
+.col-resizer::after{
+  content:"";
+  position:absolute;
+  top:7px;
+  bottom:7px;
+  left:4px;
+  width:1px;
+  background:transparent;
+  transition:background .12s ease;
+}
+.col-resizer:hover::after,
+.col-resizer.active::after{background:var(--brand-green)}
+body.is-resizing-column,
+body.is-resizing-column *{cursor:col-resize !important;user-select:none !important}
+
+/* Po ręcznym zwężeniu kolumn opisowych tekst zawija się, a wysokość wiersza rośnie. */
+.table-wrap th.column-user-sized.column-wrap,
+.table-wrap td.column-user-sized.column-wrap{
+  white-space:normal !important;
+  overflow-wrap:anywhere;
+  word-break:normal;
+  text-overflow:clip;
+  line-height:1.35;
+}
+.table-wrap th.column-user-sized .th-label{
+  white-space:normal;
+  overflow-wrap:anywhere;
+  line-height:1.25;
+}
+/* Liczby nie łamią się nawet po ręcznej zmianie szerokości. */
+.table-wrap th.col-metric.column-user-sized,
+.table-wrap td.col-metric.column-user-sized,
+.table-wrap td.column-user-sized.mono{
+  white-space:nowrap !important;
+}
+
+/* Przy własnych szerokościach nie pozwalamy przeglądarce ponownie rozdzielać kolumn. */
+.table-wrap table.column-sizing-active{
+  table-layout:fixed !important;
+  max-width:none;
+}
+
+/* Dyskretny reset szerokości w topbarze — pojawia się dopiero po pierwszej zmianie. */
+.column-reset-btn{
+  height:34px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:0 10px;
+  border:1px solid var(--brand-line-strong);
+  border-radius:7px;
+  background:#fff;
+  color:#686869;
+  font-family:'Open Sans',sans-serif;
+  font-size:11px;
+  font-weight:600;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:border-color .12s ease,background .12s ease,color .12s ease;
+}
+.column-reset-btn:hover{
+  border-color:#B7BDB2;
+  background:#F7F8F6;
+  color:var(--brand-charcoal);
+}
+.column-reset-btn span:first-child{font-size:15px;line-height:1;color:var(--brand-green-dark)}
+.column-reset-btn[hidden]{display:none !important}
+
+@media(max-width:900px){
+  .column-reset-btn span:last-child{display:none}
+  .column-reset-btn{width:34px;padding:0;justify-content:center}
+}

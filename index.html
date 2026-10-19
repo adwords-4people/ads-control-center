@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PPC - Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="shell">
+
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="brand-mark" aria-hidden="true"><span></span></div>
+    <div class="brand-copy">
+      <div class="logo-text">PPC Dashboard</div>
+      <div class="logo-sub">4PEOPLE · dashboard</div>
+    </div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-label">Google Ads</div>
+    <button class="nav-item active" onclick="showPage('overview',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Przegląd
+    </button>
+    <button class="nav-item" onclick="showPage('wydatki',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
+      Wydatki
+    </button>
+    <button class="nav-item" onclick="showPage('audyt',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Audyt
+    </button>
+    <button class="nav-item" onclick="showPage('audytWart',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg>
+      Audyt - wart
+    </button>
+    <button class="nav-item" onclick="showPage('wyniki',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      Wyniki
+    </button>
+    <button class="nav-item" onclick="showPage('wartKonw',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Wartość konwersji
+    </button>
+    <button class="nav-item" onclick="showPage('anomalia',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Anomalia
+    </button>
+
+    <div class="nav-label" style="margin-top:22px">Meta Ads</div>
+    <button class="nav-item nav-meta" onclick="showPage('metaOverview',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Przegląd
+    </button>
+    <button class="nav-item nav-meta" onclick="showPage('metaWydatki',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
+      Wydatki
+    </button>
+    <button class="nav-item nav-meta" onclick="showPage('metaDzienny',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      Dzienny
+    </button>
+    <button class="nav-item nav-meta" onclick="showPage('metaAudyt',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Audyt
+    </button>
+    <button class="nav-item nav-meta" onclick="showPage('metaAudytWart',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg>
+      Audyt - wart
+    </button>
+    <button class="nav-item nav-meta" onclick="showPage('metaMiesieczny',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      Wyniki
+    </button>
+    <button class="nav-item nav-meta" onclick="showPage('metaWartoscKonwersji',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Wartość konwersji
+    </button>
+    <button class="nav-item nav-meta" onclick="showPage('metaAnomalia',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Anomalia
+    </button>
+
+    <div class="nav-label" style="margin-top:22px">Narzędzia</div>
+    <button class="nav-item nav-dziennik" onclick="showPage('dziennik',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Dziennik zmian
+    </button>
+  </div>
+  <div class="sidebar-footer">
+    <button class="refresh-btn" id="refreshBtn" onclick="loadAllData()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Odśwież dane
+    </button>
+    <div class="last-update" id="lastUpdate" aria-live="polite">Google Ads: —</div>
+    <div class="last-update" id="metaReportUpdate" aria-live="polite">Meta Ads: —</div>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="header">
+    <div class="header-heading">
+      <div class="header-title-row">
+        <div class="header-title" id="pageTitle">Przegląd</div>
+        <span class="platform-badge google" id="platformBadge">Google Ads</span>
+      </div>
+      <div class="header-subtitle" id="pageSubtitle">Najważniejsze sygnały i wyniki kont</div>
+    </div>
+    <div class="header-filters" id="headerFilters">
+      <span class="results-count" id="resultsCount"></span>
+      <input class="search-input" id="searchInput" placeholder="Szukaj konta…" aria-label="Szukaj konta">
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="data-notice" id="metaDataNotice" role="status" hidden></div>
+    <div class="data-notice" id="comparisonConfigNotice" role="status" hidden></div>
+    <details class="comparison-legend" id="comparisonLegend" hidden>
+      <summary>Zasady kolorowania anomalii i trendów</summary>
+      <p id="comparisonLegendBody"></p>
+    </details>
+
+    <div class="page active overview-page" id="page-overview">
+      <div class="section" id="statusTableSection">
+        <div class="section-header"><span class="section-title">Konta</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Konto</th><th>Budżet</th><th title="Wynik osiągnięty w bieżącym miesiącu.">Wynik</th><th title="Zmiana wyniku względem poprzedniego miesiąca.">Zmiana vs poprz. mies.</th>
+              <th title="Porównanie wyświetleń z ostatnich 30 dni do średniej miesięcznej z ostatnich 90 dni. 100% oznacza brak zmiany.">Wyświetlenia · trend</th><th title="Zmiana wyświetleń dzień do dnia; duży wzrost oznacza ostrzeżenie.">Wyświetlenia · d/d</th><th title="Zwrot z wydatków reklamowych.">ROAS</th><th title="Średni koszt pozyskania jednego wyniku.">CPA</th>
+            </tr></thead>
+            <tbody id="statusBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-wydatki">
+      <div class="section"><div class="table-wrap">
+        <table><thead id="wydatkiHead"></thead><tbody id="wydatkiBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+      </div></div>
+    </div>
+
+    <div class="page" id="page-audyt"><div class="section"><div class="table-wrap">
+      <table><thead id="audytHead"></thead><tbody id="audytBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-audytWart"><div class="section"><div class="table-wrap">
+      <table><thead id="audytWartHead"></thead><tbody id="audytWartBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-wyniki"><div class="section"><div class="table-wrap">
+      <table><thead id="wynikiHead"></thead><tbody id="wynikiBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-wartKonw">
+      <div class="section">
+        <div class="table-wrap">
+          <table><thead id="wartKonwHead"></thead><tbody id="wartKonwBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-anomalia"><div class="section"><div class="table-wrap">
+      <table><thead id="anomaliaHead"></thead><tbody id="anomaliaBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page overview-page" id="page-metaOverview">
+      <div class="section">
+        <div class="section-header"><span class="section-title">Zestawy reklam</span></div>
+        <div class="table-wrap">
+          <table class="meta-two-sticky">
+            <thead><tr>
+              <th>Konto</th><th>Zestaw reklam</th><th>Budżet</th><th>Koszt dziś</th><th>Wyświetlenia dziś</th>
+              <th>Koszt wczoraj</th><th title="Zmiana wyświetleń dzień do dnia; duży wzrost oznacza ostrzeżenie, nie sukces.">Wyświetlenia · d/d</th>
+              <th title="Wynik osiągnięty w bieżącym miesiącu.">Wynik · miesiąc</th><th title="Zmiana prognozy całego miesiąca względem wyniku całego poprzedniego miesiąca. 0% oznacza brak zmiany.">Zmiana prognozy</th><th title="Zmiana wyświetleń z ostatnich 30 dni względem średniej miesięcznej z ostatnich 90 dni.">Wyświetlenia · trend</th>
+            </tr></thead>
+            <tbody id="metaOverviewBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-metaDzienny"><div class="section"><div class="table-wrap">
+      <table><thead id="metaDziennyHead"></thead><tbody id="metaDziennyBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-metaWydatki"><div class="section"><div class="table-wrap">
+      <table><thead id="metaWydatkiHead"></thead><tbody id="metaWydatkiBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-metaMiesieczny"><div class="section"><div class="table-wrap">
+      <table><thead id="metaMiesiecznyHead"></thead><tbody id="metaMiesiecznyBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-metaWartoscKonwersji"><div class="section"><div class="table-wrap">
+      <table><thead id="metaWartoscKonwersjiHead"></thead><tbody id="metaWartoscKonwersjiBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-metaAudyt"><div class="section"><div class="table-wrap">
+      <table><thead id="metaAudytHead"></thead><tbody id="metaAudytBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-metaAudytWart"><div class="section"><div class="table-wrap">
+      <table><thead id="metaAudytWartHead"></thead><tbody id="metaAudytWartBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-metaAnomalia"><div class="section"><div class="table-wrap">
+      <table><thead id="metaAnomaliaHead"></thead><tbody id="metaAnomaliaBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-dziennik">
+
+      <div class="webapp-banner" id="webappBanner" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span><strong>Ustaw URL Web App</strong> — wklej adres swojego Apps Script w zmiennej <code>WEBAPP_URL</code> w kodzie dashboardu, aby móc dodawać i usuwać notatki (odczyt działa niezależnie). <a onclick="showWebappHelp()">Jak to zrobić?</a></span>
+      </div>
+
+      <div class="dziennik-layout">
+
+        <div class="dziennik-form-panel">
+          <div class="dziennik-form-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nowa notatka
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Platforma</label>
+            <select class="form-select" id="notePlatforma" onchange="onPlatformaChange()">
+              <option value="">— wybierz platformę —</option>
+              <option value="Google Ads">Google Ads</option>
+              <option value="Meta Ads">Meta Ads</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Konto</label>
+            <select class="form-select" id="noteKonto" disabled>
+              <option value="">— najpierw wybierz platformę —</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Opis zmiany</label>
+            <textarea class="form-textarea" id="noteTresc" placeholder="Co zostało zmienione i dlaczego…" rows="5"></textarea>
+          </div>
+
+          <button class="btn-save" id="saveNoteBtn" onclick="saveNote()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Zapisz notatkę
+          </button>
+          <div class="form-feedback" id="formFeedback"></div>
+        </div>
+
+        <div class="dziennik-list-panel">
+          <div class="dziennik-list-header">
+            <span class="dziennik-count" id="notesCount">0 notatek</span>
+            <div class="dziennik-filters">
+              <select class="dz-filter" id="dzFilterKonto" onchange="renderNotesList()">
+                <option value="">Wszystkie konta</option>
+              </select>
+              <select class="dz-filter" id="dzFilterPlatforma" onchange="renderNotesList()">
+                <option value="">Wszystkie platformy</option>
+                <option value="Google Ads">Google Ads</option>
+                <option value="Meta Ads">Meta Ads</option>
+              </select>
+              <input class="dz-search" id="dzSearch" placeholder="Szukaj w treści…" aria-label="Szukaj w treści notatek">
+            </div>
+          </div>
+          <div id="notesList">
+            <div class="notes-loading"><div class="spinner"></div> Ładowanie notatek…</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-title">Usunąć notatkę?</div>
+    <div class="confirm-desc" id="confirmDesc">Tej operacji nie można cofnąć.</div>
+    <div class="confirm-actions">
+      <button class="confirm-cancel" onclick="closeConfirm()">Anuluj</button>
+      <button class="confirm-ok" id="confirmOkBtn">Usuń</button>
+    </div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="notes.js"></script>
+<script src="dashboard.js"></script>
+</body>
+</html>

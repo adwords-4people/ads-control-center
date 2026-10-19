@@ -1,0 +1,2346 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PPC Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #ffffff;
+  --bg2: #f8f8f8;
+  --bg3: #f1f1f1;
+  --border: #e0e0e0;
+  --border2: #cccccc;
+  --text: #404041;
+  --muted: #888888;
+  --muted2: #959595;
+  --green: #83C341;
+  --green-dark: #2F9764;
+  --green-bg: rgba(131,195,65,0.1);
+  --red: #C0392B;
+  --red-bg: rgba(192,57,43,0.1);
+  --amber: #FE9500;
+  --amber-bg: rgba(254,149,0,0.1);
+  --blue: #394392;
+  --blue-bg: rgba(57,67,146,0.1);
+  --accent: #83C341;
+  --accent-bg: rgba(131,195,65,0.12);
+  --navy: #394392;
+  --meta: #7B61FF;
+  --meta-bg: rgba(123,97,255,0.12);
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Open Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+a{color:inherit;text-decoration:none}
+.shell{display:flex;min-height:100vh}
+
+/* ── SIDEBAR ── */
+.sidebar{width:230px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.main{flex:1;overflow:hidden;background:var(--bg)}
+.sidebar-logo{padding:22px 20px 18px;border-bottom:1px solid var(--border)}
+.logo-text{font-size:17px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--text);letter-spacing:.04em}
+.logo-sub{font-size:11px;color:var(--muted);font-family:'Open Sans',sans-serif;margin-top:3px}
+.sidebar-nav{padding:14px 10px;flex:1}
+.nav-label{font-size:10px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--muted2);letter-spacing:.1em;text-transform:uppercase;padding:0 10px;margin:18px 0 6px}
+.nav-label:first-child{margin-top:0}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius);cursor:pointer;color:var(--muted);font-size:13px;font-weight:600;font-family:'Open Sans',sans-serif;transition:all .15s;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{color:var(--text);background:var(--bg3)}
+.nav-item.active{color:var(--text);background:var(--accent-bg);border:1px solid rgba(131,195,65,0.25)}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;opacity:.7}
+.nav-item.active svg{opacity:1;color:var(--accent)}
+.nav-item.nav-dziennik.active svg{color:var(--navy)}
+.nav-item.nav-dziennik.active{background:var(--blue-bg);border-color:rgba(57,67,146,0.25);color:var(--text)}
+.nav-item.nav-meta.active svg{color:var(--meta)}
+.nav-item.nav-meta.active{background:var(--meta-bg);border-color:rgba(123,97,255,0.3);color:var(--text)}
+.platform-badge{font-size:11px;font-weight:700;padding:3px 11px;border-radius:20px;font-family:'Open Sans',sans-serif;vertical-align:middle;margin-left:2px}
+.platform-badge:empty{display:none;padding:0;margin:0}
+.platform-badge.google{background:var(--accent-bg);color:var(--green-dark)}
+.platform-badge.meta{background:var(--meta-bg);color:var(--meta)}
+.platform-badge.tools{background:var(--blue-bg);color:var(--navy)}
+.sidebar-footer{padding:12px 10px;border-top:1px solid var(--border)}
+.refresh-btn{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:var(--radius);cursor:pointer;color:var(--text);font-size:12px;font-weight:600;background:none;border:1px solid var(--border2);width:100%;transition:all .15s;font-family:'Open Sans',sans-serif}
+.refresh-btn:hover{border-color:var(--accent);color:var(--accent)}
+.refresh-btn svg{width:14px;height:14px}
+.refresh-btn.loading svg{animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.last-update{font-size:10px;color:var(--muted2);padding:6px 10px 0;font-family:'Open Sans',sans-serif}
+
+/* ── HEADER ── */
+.header{padding:20px 28px 16px;border-bottom:2px solid var(--border);display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:var(--bg)}
+.header-title{font-size:20px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--text);flex:1;min-width:160px}
+.header-filters{display:flex;gap:8px;flex-wrap:wrap}
+select{background:var(--bg);border:1px solid var(--border2);color:var(--text);font-size:12px;font-weight:600;padding:7px 28px 7px 10px;border-radius:var(--radius);cursor:pointer;font-family:'Open Sans',sans-serif;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23404041' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+select:focus{outline:none;border-color:var(--accent)}
+.search-input{background:var(--bg);border:1px solid var(--border2);color:var(--text);font-size:12px;padding:7px 10px 7px 30px;border-radius:var(--radius);font-family:'Open Sans',sans-serif;width:200px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:10px center}
+.search-input:focus{outline:none;border-color:var(--accent)}
+.search-input::placeholder{color:var(--muted2)}
+.results-count{font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap;padding:0 2px}
+.results-count:empty{display:none}
+
+/* ── CONTENT ── */
+.content{padding:24px 28px}
+.page{display:none}.page.active{display:block}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.kpi-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:0 2px 6px rgba(0,0,0,0.04)}
+.kpi-label{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;font-family:'Open Sans',sans-serif;text-transform:uppercase;letter-spacing:.04em}
+.kpi-val{font-size:24px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--text);line-height:1}
+.kpi-card.accent-red{border-color:rgba(192,57,43,0.3);background:rgba(192,57,43,0.04);border-left:3px solid var(--red)}
+.kpi-card.accent-amber{border-color:rgba(254,149,0,0.3);background:rgba(254,149,0,0.04);border-left:3px solid var(--amber)}
+.section{margin-bottom:24px}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.section-title{font-size:13px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em}
+
+/* ── TABELE ── */
+.table-wrap{border:1px solid var(--border);border-radius:var(--radius-lg);overflow-x:auto;overflow-y:visible;box-shadow:0 2px 6px rgba(0,0,0,0.03);position:relative;
+  background-color:var(--bg);
+  background-image:
+    linear-gradient(to right, var(--bg) 30%, rgba(255,255,255,0)),
+    linear-gradient(to left, var(--bg) 30%, rgba(255,255,255,0)),
+    linear-gradient(to right, rgba(0,0,0,.12), rgba(0,0,0,0)),
+    linear-gradient(to left, rgba(0,0,0,.12), rgba(0,0,0,0));
+  background-repeat:no-repeat;
+  background-size:28px 100%, 28px 100%, 10px 100%, 10px 100%;
+  background-position:0 0, 100% 0, 0 0, 100% 0;
+  background-attachment:local, local, scroll, scroll;
+}
+mark.search-hl{background:rgba(131,195,65,.4);color:inherit;border-radius:3px;padding:0 1px;font-weight:700}
+.table-wrap::-webkit-scrollbar{height:7px}
+.table-wrap::-webkit-scrollbar-track{background:var(--bg3);border-radius:0 0 var(--radius-lg) var(--radius-lg)}
+.table-wrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.table-wrap::-webkit-scrollbar-thumb:hover{background:var(--muted2)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--bg2);padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap;border-bottom:2px solid var(--border);font-family:'Open Sans',sans-serif;position:sticky;top:0;z-index:1;text-transform:uppercase;letter-spacing:.04em}
+tbody td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text);font-family:'Open Sans',sans-serif;font-weight:400;white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--bg2)}
+/* ── FROZEN FIRST COLUMN ── */
+tbody td:first-child,thead th:first-child{position:sticky;left:0;z-index:2;background:var(--bg)}
+thead th:first-child{background:var(--bg2);z-index:3}
+tbody tr:hover td:first-child{background:var(--bg2)}
+.table-wrap table{border-collapse:separate;border-spacing:0}
+tbody td:first-child{box-shadow:2px 0 4px rgba(0,0,0,0.06)}
+thead th:first-child{box-shadow:2px 0 4px rgba(0,0,0,0.06)}
+.mono{font-family:'Open Sans',sans-serif;font-size:13px}
+
+/* ── WYRÓWNANIE KOMÓREK LICZBOWYCH DO PRAWEJ ──
+   Każda komórka (poza pierwszą, przypiętą kolumną) zawierająca badge/wartość liczbową/
+   metrykę wyrównuje się do prawej — standardowy wzorzec czytelności w tabelach danych
+   (tak samo robi to Google Sheets). Czysto wizualne — nie dotyka logiki formatCell/
+   renderDynamicTable, tylko wykorzystuje klasy, które ta logika już nadaje elementom. */
+.table-wrap td.mono,
+.table-wrap td:not(:first-child):has(.badge, .mono, .metric-empty, .metric-gray, .metric-green, .metric-red, .metric-amber, .delta-up, .delta-down, .delta-flat) {
+  text-align: right;
+}
+
+/* ── SORTOWANIE KOLUMN ── */
+thead th.sortable{cursor:pointer;user-select:none}
+thead th.sortable:hover{color:var(--text);background:var(--bg3)}
+thead th.sortable .sort-arrow{display:inline-block;margin-left:5px;font-size:10px}
+thead th.sortable.sort-asc .sort-arrow::after{content:'\25B2';opacity:1;color:var(--navy)}
+thead th.sortable.sort-desc .sort-arrow::after{content:'\25BC';opacity:1;color:var(--navy)}
+thead th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow::after{content:'\21C5';opacity:.35}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;font-size:11px;padding:2px 10px;border-radius:20px;font-weight:700;font-family:'Open Sans',sans-serif}
+.b-green{background:var(--green-bg);color:var(--green-dark);border:1px solid rgba(131,195,65,0.4)}
+.b-amber{background:var(--amber-bg);color:#C07A00;border:1px solid rgba(254,149,0,0.4)}
+.b-red{background:var(--red-bg);color:var(--red);border:1px solid rgba(192,57,43,0.4)}
+.b-muted{background:var(--bg3);color:var(--muted);border:1px solid var(--border2)}
+.b-navy{background:var(--blue-bg);color:var(--navy);border:1px solid rgba(57,67,146,0.3)}
+.delta-up{color:var(--green-dark);font-weight:700}
+.delta-down{color:var(--red);font-weight:700}
+.delta-flat{color:var(--muted2)}
+.metric-green{color:var(--green-dark);font-weight:700}
+.metric-amber{color:#C07A00;font-weight:700}
+.metric-red{color:var(--red);font-weight:700}
+.metric-gray{color:var(--muted);font-weight:600}
+.metric-empty{color:var(--muted2)}
+
+@media(max-width:760px){.sidebar{display:none}}
+.spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+
+/* ── PRZYCISK NOTATKI W TABELI ── */
+.note-btn{background:none;border:none;cursor:pointer;font-size:13px;padding:2px 6px;border-radius:4px;color:var(--muted);transition:all .15s;line-height:1}
+.note-btn:hover{background:var(--blue-bg);color:var(--navy)}
+.note-btn.has-notes{color:var(--navy);opacity:.9}
+
+/* ═══════════════════════════════════════
+   DZIENNIK ZMIAN
+═══════════════════════════════════════ */
+#page-dziennik{display:none}
+#page-dziennik.active{display:block}
+
+.dziennik-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:900px){.dziennik-layout{grid-template-columns:1fr}}
+
+.dziennik-form-panel{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px;box-shadow:0 2px 8px rgba(0,0,0,0.04);position:sticky;top:20px}
+.dziennik-form-title{font-size:13px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.dziennik-form-title svg{width:14px;height:14px;color:var(--navy);opacity:.8}
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;font-family:'Open Sans',sans-serif}
+.form-select{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);font-size:13px;font-weight:600;padding:9px 28px 9px 10px;border-radius:var(--radius);cursor:pointer;font-family:'Open Sans',sans-serif;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23404041' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;transition:border-color .15s}
+.form-select:focus{outline:none;border-color:var(--navy)}
+.form-select:disabled{opacity:.55;cursor:not-allowed}
+.form-textarea{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);font-size:13px;padding:9px 10px;border-radius:var(--radius);font-family:'Open Sans',sans-serif;resize:vertical;min-height:100px;line-height:1.55;transition:border-color .15s}
+.form-textarea:focus{outline:none;border-color:var(--navy)}
+.form-textarea::placeholder{color:var(--muted2)}
+.btn-save{width:100%;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:700;font-family:'Montserrat',sans-serif;cursor:pointer;transition:all .15s;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px}
+.btn-save:hover{background:#2d3680;box-shadow:0 4px 12px rgba(57,67,146,0.25)}
+.btn-save:disabled{background:var(--muted2);cursor:not-allowed;box-shadow:none}
+.btn-save svg{width:14px;height:14px}
+.btn-save.saving svg{animation:spin .7s linear infinite}
+.form-feedback{margin-top:10px;font-size:12px;font-family:'Open Sans',sans-serif;min-height:18px;text-align:center}
+.form-feedback.ok{color:var(--green-dark)}
+.form-feedback.err{color:var(--red)}
+
+.dziennik-list-panel{}
+.dziennik-list-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.dziennik-count{font-size:11px;font-weight:700;color:var(--muted);background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:3px 12px;font-family:'Open Sans',sans-serif}
+.dziennik-filters{display:flex;gap:8px;flex:1;flex-wrap:wrap}
+.dz-filter{background:var(--bg);border:1px solid var(--border2);color:var(--text);font-size:12px;font-weight:600;padding:7px 28px 7px 10px;border-radius:var(--radius);cursor:pointer;font-family:'Open Sans',sans-serif;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23404041' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;min-width:130px}
+.dz-filter:focus{outline:none;border-color:var(--navy)}
+.dz-search{background:var(--bg);border:1px solid var(--border2);color:var(--text);font-size:12px;padding:7px 10px 7px 30px;border-radius:var(--radius);font-family:'Open Sans',sans-serif;flex:1;min-width:140px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:10px center}
+.dz-search:focus{outline:none;border-color:var(--navy)}
+.dz-search::placeholder{color:var(--muted2)}
+
+.notes-list{display:flex;flex-direction:column;gap:10px}
+.note-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:0 2px 6px rgba(0,0,0,0.03);border-left:4px solid var(--navy);transition:box-shadow .15s}
+.note-card:hover{box-shadow:0 4px 14px rgba(0,0,0,0.08)}
+.note-card-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.note-date{font-size:11px;color:var(--muted2);font-family:'Open Sans',sans-serif}
+.note-konto-badge{font-size:11px;padding:2px 10px;border-radius:20px;font-weight:700;font-family:'Open Sans',sans-serif;background:var(--blue-bg);color:var(--navy);border:1px solid rgba(57,67,146,0.25)}
+.note-platforma-badge{font-size:11px;padding:2px 10px;border-radius:20px;font-weight:700;font-family:'Open Sans',sans-serif}
+.note-platforma-badge.google{background:var(--accent-bg);color:var(--green-dark);border:1px solid rgba(131,195,65,.35)}
+.note-platforma-badge.meta{background:var(--meta-bg);color:var(--meta);border:1px solid rgba(123,97,255,.3)}
+.note-actions{margin-left:auto;display:flex;gap:4px}
+.note-del-btn{background:none;border:none;cursor:pointer;font-size:12px;padding:3px 7px;border-radius:4px;color:var(--muted2);transition:all .15s;font-family:'Open Sans',sans-serif;font-weight:600}
+.note-del-btn:hover{background:var(--red-bg);color:var(--red)}
+.note-tresc{font-size:13px;color:var(--text);font-family:'Open Sans',sans-serif;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.note-entries{display:flex;flex-direction:column;gap:7px}
+.note-entry{display:flex;gap:10px;align-items:baseline;font-size:13px;font-family:'Open Sans',sans-serif;line-height:1.55}
+.note-entry-time{font-size:11px;font-weight:700;color:var(--navy);background:var(--blue-bg);border:1px solid rgba(57,67,146,.2);border-radius:4px;padding:1px 7px;white-space:nowrap;flex-shrink:0}
+.note-entry-text{color:var(--text);white-space:pre-wrap;word-break:break-word}
+.note-entry-count{font-size:10px;font-weight:700;color:var(--muted);background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:1px 8px;margin-left:auto}
+.notes-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--muted);gap:10px;text-align:center;background:var(--bg2);border:1px dashed var(--border2);border-radius:var(--radius-lg)}
+.notes-empty svg{width:32px;height:32px;opacity:.35}
+.notes-empty p{font-size:13px}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--text);color:#fff;padding:12px 20px;border-radius:var(--radius);font-size:13px;font-weight:600;font-family:'Open Sans',sans-serif;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.18);transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{background:var(--green-dark)}
+.toast.err{background:var(--red)}
+
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:8888;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.confirm-overlay.show{opacity:1;pointer-events:all}
+.confirm-box{background:var(--bg);border-radius:var(--radius-lg);padding:28px 32px;box-shadow:0 8px 32px rgba(0,0,0,.18);max-width:360px;width:90%;transform:scale(.95);transition:transform .2s}
+.confirm-overlay.show .confirm-box{transform:scale(1)}
+.confirm-title{font-size:15px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--text);margin-bottom:8px}
+.confirm-desc{font-size:13px;color:var(--muted);font-family:'Open Sans',sans-serif;margin-bottom:22px;line-height:1.5}
+.confirm-actions{display:flex;gap:10px;justify-content:flex-end}
+.confirm-cancel{padding:9px 20px;background:none;border:1px solid var(--border2);border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;font-family:'Open Sans',sans-serif;color:var(--text);transition:all .15s}
+.confirm-cancel:hover{border-color:var(--muted);background:var(--bg2)}
+.confirm-ok{padding:9px 20px;background:var(--red);border:none;border-radius:var(--radius);font-size:13px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;color:#fff;transition:all .15s}
+.confirm-ok:hover{background:#a93226}
+
+.notes-loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px;color:var(--muted);font-size:13px;font-family:'Open Sans',sans-serif}
+.notes-loading .spinner{border-top-color:var(--navy)}
+
+.webapp-banner{background:var(--blue-bg);border:1px solid rgba(57,67,146,.25);border-radius:var(--radius);padding:12px 16px;margin-bottom:20px;font-size:12px;font-family:'Open Sans',sans-serif;color:var(--navy);display:flex;align-items:center;gap:10px}
+.webapp-banner svg{width:16px;height:16px;flex-shrink:0}
+.webapp-banner strong{font-weight:700}
+.webapp-banner a{color:var(--navy);text-decoration:underline;cursor:pointer}
+.data-notice{padding:12px 16px;margin-bottom:18px;background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--radius);font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.data-notice[hidden]{display:none}
+.last-update{line-height:1.6;overflow-wrap:anywhere}
+.table-message{white-space:normal;text-align:center;padding:24px;color:var(--muted);line-height:1.6}
+.comparison-legend{margin-bottom:18px;font-size:12px;color:var(--muted);line-height:1.65}
+.comparison-legend[hidden]{display:none}
+.comparison-legend summary{cursor:pointer;font-weight:600;color:var(--text);width:fit-content}
+.comparison-legend p{padding-top:8px;max-width:1000px}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-text">ADS MCK</div>
+    <div class="logo-sub">4people.pl</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-label">Google Ads</div>
+    <button class="nav-item active" onclick="showPage('overview',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Przegląd
+    </button>
+    <button class="nav-item" onclick="showPage('wydatki',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
+      Wydatki
+    </button>
+    <button class="nav-item" onclick="showPage('audyt',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Audyt
+    </button>
+    <button class="nav-item" onclick="showPage('audytWart',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg>
+      Audyt - wart
+    </button>
+    <button class="nav-item" onclick="showPage('wyniki',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      Wyniki
+    </button>
+    <button class="nav-item" onclick="showPage('wartKonw',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Wartość konwersji
+    </button>
+    <button class="nav-item" onclick="showPage('anomalia',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Anomalia
+    </button>
+
+    <div class="nav-label" style="margin-top:22px">Meta Ads</div>
+    <button class="nav-item nav-meta" onclick="showPage('metaOverview',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Przegląd
+    </button>
+    <button class="nav-item nav-meta" onclick="showPage('metaWydatki',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
+      Wydatki
+    </button>
+    <button class="nav-item nav-meta" onclick="showPage('metaDzienny',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      Dzienny
+    </button>
+    <button class="nav-item nav-meta" onclick="showPage('metaAudyt',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Audyt
+    </button>
+    <button class="nav-item nav-meta" onclick="showPage('metaAudytWart',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg>
+      Audyt - wart
+    </button>
+    <button class="nav-item nav-meta" onclick="showPage('metaMiesieczny',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      Wyniki
+    </button>
+    <button class="nav-item nav-meta" onclick="showPage('metaWartoscKonwersji',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Wartość konwersji
+    </button>
+    <button class="nav-item nav-meta" onclick="showPage('metaAnomalia',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Anomalia
+    </button>
+
+    <div class="nav-label" style="margin-top:22px">Narzędzia</div>
+    <button class="nav-item nav-dziennik" onclick="showPage('dziennik',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Dziennik zmian
+    </button>
+  </div>
+  <div class="sidebar-footer">
+    <button class="refresh-btn" id="refreshBtn" onclick="loadAllData()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Odśwież dane
+    </button>
+    <div class="last-update" id="lastUpdate" aria-live="polite">Google Ads: —</div>
+    <div class="last-update" id="metaReportUpdate" aria-live="polite">Meta Ads: —</div>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="header">
+    <div class="header-title" id="pageTitle">Przegląd</div>
+    <span class="platform-badge google" id="platformBadge">Google Ads</span>
+    <div class="header-filters" id="headerFilters">
+      <span class="results-count" id="resultsCount"></span>
+      <input class="search-input" id="searchInput" placeholder="Szukaj konta…" aria-label="Szukaj konta">
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="data-notice" id="metaDataNotice" role="status" hidden></div>
+    <div class="data-notice" id="comparisonConfigNotice" role="status" hidden></div>
+    <details class="comparison-legend" id="comparisonLegend" hidden>
+      <summary>Zasady kolorowania anomalii i trendów</summary>
+      <p id="comparisonLegendBody"></p>
+    </details>
+
+    <div class="page active" id="page-overview">
+      <div class="section" id="statusTableSection">
+        <div class="section-header"><span class="section-title">Przegląd kont — Google Ads</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Konto</th><th>Budżet</th><th>Konwersje</th><th>Konwersje vs poprzedni mies.</th>
+              <th title="Relacja do bazy: 100% = bez zmian. Kolor na podstawie zmiany względem bazy.">Trend wyświetleń 30d</th><th title="Porównanie dzienne; duży wzrost oznacza ostrzeżenie.">Anomalia wyświetleń</th><th>ROAS</th><th>CPA</th>
+            </tr></thead>
+            <tbody id="statusBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-wydatki">
+      <div class="section"><div class="table-wrap">
+        <table><thead id="wydatkiHead"></thead><tbody id="wydatkiBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+      </div></div>
+    </div>
+
+    <div class="page" id="page-audyt"><div class="section"><div class="table-wrap">
+      <table><thead id="audytHead"></thead><tbody id="audytBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-audytWart"><div class="section"><div class="table-wrap">
+      <table><thead id="audytWartHead"></thead><tbody id="audytWartBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-wyniki"><div class="section"><div class="table-wrap">
+      <table><thead id="wynikiHead"></thead><tbody id="wynikiBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-wartKonw">
+      <div class="section">
+        <div class="table-wrap">
+          <table><thead id="wartKonwHead"></thead><tbody id="wartKonwBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-anomalia"><div class="section"><div class="table-wrap">
+      <table><thead id="anomaliaHead"></thead><tbody id="anomaliaBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-metaOverview">
+      <div class="section">
+        <div class="section-header"><span class="section-title">Przegląd zestawów reklam — Meta Ads</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Konto</th><th>Zestaw reklam</th><th>Budżet</th><th>Koszt dziś</th><th>Wyświetlenia dziś</th>
+              <th>Koszt wczoraj</th><th title="Anomalia dzienna; duży wzrost oznacza ostrzeżenie, nie sukces.">Zmiana wyświetleń dzień do dnia</th>
+              <th>Wynik (miesiąc)</th><th title="Zmiana prognozy całego miesiąca względem wyniku całego poprzedniego miesiąca. 0% oznacza brak zmiany.">Zmiana prognozy vs poprzedni mies.</th><th>Trend wyświetleń 30d</th>
+            </tr></thead>
+            <tbody id="metaOverviewBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-metaDzienny"><div class="section"><div class="table-wrap">
+      <table><thead id="metaDziennyHead"></thead><tbody id="metaDziennyBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-metaWydatki"><div class="section"><div class="table-wrap">
+      <table><thead id="metaWydatkiHead"></thead><tbody id="metaWydatkiBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-metaMiesieczny"><div class="section"><div class="table-wrap">
+      <table><thead id="metaMiesiecznyHead"></thead><tbody id="metaMiesiecznyBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-metaWartoscKonwersji"><div class="section"><div class="table-wrap">
+      <table><thead id="metaWartoscKonwersjiHead"></thead><tbody id="metaWartoscKonwersjiBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-metaAudyt"><div class="section"><div class="table-wrap">
+      <table><thead id="metaAudytHead"></thead><tbody id="metaAudytBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-metaAudytWart"><div class="section"><div class="table-wrap">
+      <table><thead id="metaAudytWartHead"></thead><tbody id="metaAudytWartBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-metaAnomalia"><div class="section"><div class="table-wrap">
+      <table><thead id="metaAnomaliaHead"></thead><tbody id="metaAnomaliaBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
+    </div></div></div>
+
+    <div class="page" id="page-dziennik">
+
+      <div class="webapp-banner" id="webappBanner" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span><strong>Ustaw URL Web App</strong> — wklej adres swojego Apps Script w zmiennej <code>WEBAPP_URL</code> w kodzie dashboardu, aby móc dodawać i usuwać notatki (odczyt działa niezależnie). <a onclick="showWebappHelp()">Jak to zrobić?</a></span>
+      </div>
+
+      <div class="dziennik-layout">
+
+        <div class="dziennik-form-panel">
+          <div class="dziennik-form-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nowa notatka
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Platforma</label>
+            <select class="form-select" id="notePlatforma" onchange="onPlatformaChange()">
+              <option value="">— wybierz platformę —</option>
+              <option value="Google Ads">Google Ads</option>
+              <option value="Meta Ads">Meta Ads</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Konto</label>
+            <select class="form-select" id="noteKonto" disabled>
+              <option value="">— najpierw wybierz platformę —</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Opis zmiany</label>
+            <textarea class="form-textarea" id="noteTresc" placeholder="Co zostało zmienione i dlaczego…" rows="5"></textarea>
+          </div>
+
+          <button class="btn-save" id="saveNoteBtn" onclick="saveNote()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Zapisz notatkę
+          </button>
+          <div class="form-feedback" id="formFeedback"></div>
+        </div>
+
+        <div class="dziennik-list-panel">
+          <div class="dziennik-list-header">
+            <span class="dziennik-count" id="notesCount">0 notatek</span>
+            <div class="dziennik-filters">
+              <select class="dz-filter" id="dzFilterKonto" onchange="renderNotesList()">
+                <option value="">Wszystkie konta</option>
+              </select>
+              <select class="dz-filter" id="dzFilterPlatforma" onchange="renderNotesList()">
+                <option value="">Wszystkie platformy</option>
+                <option value="Google Ads">Google Ads</option>
+                <option value="Meta Ads">Meta Ads</option>
+              </select>
+              <input class="dz-search" id="dzSearch" placeholder="Szukaj w treści…" aria-label="Szukaj w treści notatek">
+            </div>
+          </div>
+          <div id="notesList">
+            <div class="notes-loading"><div class="spinner"></div> Ładowanie notatek…</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-title">Usunąć notatkę?</div>
+    <div class="confirm-desc" id="confirmDesc">Tej operacji nie można cofnąć.</div>
+    <div class="confirm-actions">
+      <button class="confirm-cancel" onclick="closeConfirm()">Anuluj</button>
+      <button class="confirm-ok" id="confirmOkBtn">Usuń</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  KONFIGURACJA
+// ═══════════════════════════════════════════════════════
+// UWAGA — MIGRACJA: WEBAPP_URL musi wskazywać na Web App wdrożony z poziomu skryptu
+// PRZYPIĘTEGO do nowego pliku (SHEET_ID poniżej), z SHEET_NAME = 'Dziennik zmian'.
+// Stary URL wskazywał na poprzedni plik danych i nie zadziała tutaj — dopóki nie wklejisz
+// nowego URL-a, odczyt notatek będzie działać (czyta wprost z arkusza), ale dodawanie
+// i usuwanie notatek przez formularz w dashboardzie będzie zablokowane.
+const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxBSpEAIYx8l1D40T_DJbgyq5Ks0biWpt2QdVpjrEcMyqTKiVfI3q677RGqDFf3iyPJ/exec';
+
+// Nowy plik źródłowy — jeden skonsolidowany skrypt zamiast osobnych skryptów per zakładka.
+const SHEET_ID = '1dVut-WEG3dd9JbllLXyuetmcHudstIYzWCrPEzwbyWM';
+
+// Zakładki Google Ads adresowane po NAZWIE (nie GID) — odporne na kopiowanie arkusza
+// i na przypadkową zmianę GID-ów; wykorzystuje fetchCsvByName() zamiast fetchCsv().
+// UWAGA: zakładka "Konfiguracja" w tym pliku jest już nieużywana — progi czytamy teraz
+// z osobnego pliku Konfiguracja (CONFIG_SHEET_ID poniżej), patrz CONFIG_SHEET_NAMES.
+const SHEET_NAMES = {
+  wydatki:      'Wydatki',
+  audyt:        'Audyt',
+  audytWart:    'Audyt - wart',
+  wyniki:       'Wyniki',
+  wartKonw:     'Wartość konwersji',
+  anomalia:     'Anomalia',
+  notatki:      'Dziennik zmian',
+};
+
+// Arkusz Meta Ads — osobny plik Google Sheets, wszystkie zakładki adresowane po GID
+const META_SHEET_ID = '1RBFYQo_MwzF-AUPSHBMbZAssSnTnfghUgCuf8rmRLow';
+const META_GIDS = {
+  metaWydatki:      '833875820',
+  metaAnomalia:     '1656935920',
+  metaDzienny:      '121322202',
+  metaMiesieczny:   '1581500139',
+  metaAudyt:        '983098958',
+  metaKonta:        '0',
+  // UZUPEŁNIĆ po pierwszym uruchomieniu zaktualizowanego skryptu Meta (Google nadaje GID
+  // dopiero przy utworzeniu zakładki) — prawy klik na zakładkę → Kopiuj link → wyciągnij
+  // gid=... z URL. Do tego czasu te dwie zakładki nie wczytają się (celowo — placeholder
+  // 'PODAJ_GID' zwróci błąd HTTP zamiast po cichu pokazać dane z innej zakładki).
+  metaAudytWart:        '2046433272',
+  metaWartoscKonwersji: '1488328459',
+};
+
+// Plik Konfiguracja — jedyne źródło progów alertowych (per konto, po ID + wiersz DOMYŚLNE)
+// dla obu platform. Osobny plik od danych, adresowany po nazwie zakładki jak Google Ads.
+const CONFIG_SHEET_ID = '18OkafR7o2GVscgGRAg-tsH7mk78ibN4MFGVzIl4hzgM';
+const CONFIG_SHEET_NAMES = {
+  progiGoogle: 'Progi - Google Ads',
+  progiMeta:   'Progi - Meta Ads',
+};
+
+if (!SHEET_ID) console.error('[Config] Brak SHEET_ID — dashboard nie pobierze danych.');
+if (!WEBAPP_URL) console.warn('[Config] Brak WEBAPP_URL — dodawanie/usuwanie notatek będzie niedostępne (odczyt działa niezależnie).');
+if (!META_SHEET_ID) console.warn('[Config] Brak META_SHEET_ID — dane Meta Ads będą niedostępne.');
+if (!CONFIG_SHEET_ID) console.warn('[Config] Brak CONFIG_SHEET_ID — progi spadną na wartości systemowe (DEFAULTS/META_DEFAULTS).');
+
+
+
+// Kontrakt raportu po scaleniu. Nazwy muszą odpowiadać HEADERS_MONTHLY w GAS.
+const META_MONTHLY_HEADERS = Object.freeze([
+  'Data i godzina aktualizacji', // A
+  'ID Konta',                    // B
+  'Konto',                       // C
+  'ID Zestawu',                  // D
+  'Nazwa zestawu reklam',        // E
+  'Cel optymalizacji',           // F
+  'Koszt (Miesiąc)',             // G
+  'Kliknięcia (Miesiąc)',        // H
+  'CPC',                         // I
+  'Wyświetlenia (Miesiąc)',      // J
+  'Zasięg (Miesiąc)',            // K
+  'Wynik (Miesiąc)',             // L
+  'Prognoza wyniku (cały miesiąc)', // M
+  'Wynik (poprzedni miesiąc)',      // N
+  'Zmiana prognozy wyniku vs poprzedni miesiąc (%)' // O
+]);
+const META_MONTHLY_FIELDS = Object.freeze({
+  updatedAt: META_MONTHLY_HEADERS[0],
+  result: META_MONTHLY_HEADERS[11],
+  forecast: META_MONTHLY_HEADERS[12],
+  previous: META_MONTHLY_HEADERS[13],
+  change: META_MONTHLY_HEADERS[14],
+});
+// Skracamy tylko etykiety. Odczyt i sortowanie nadal używają pełnych nazw z CSV.
+const META_MONTHLY_LABELS = Object.freeze({
+  [META_MONTHLY_FIELDS.forecast]: 'Prognoza miesiąca',
+  [META_MONTHLY_FIELDS.previous]: 'Wynik poprzedni miesiąc',
+  [META_MONTHLY_FIELDS.change]: 'Zmiana prognozy (%)',
+});
+
+let DATA = {};
+let NOTES = [];
+let ALL_KONTA = [];
+let GOOGLE_KONTA = [];
+let META_KONTA = [];
+
+// ── LICZNIK WYNIKÓW ─────────────────────────────────────
+// Klucz: nazwa strony (np. 'wydatki', 'overview'), wartość: {shown, total}
+let PAGE_COUNTS = {};
+
+function updateResultsCountDisplay() {
+  const el = document.getElementById('resultsCount');
+  if (!el) return;
+  const activeEl = document.querySelector('.page.active');
+  const pageId = activeEl ? activeEl.id.replace('page-', '') : '';
+  const c = PAGE_COUNTS[pageId];
+  if (!c) { el.textContent = ''; return; }
+  el.textContent = c.shown === c.total
+    ? `${c.total} ${plural(c.total, 'wynik', 'wyniki', 'wyników')}`
+    : `${c.shown} z ${c.total} ${plural(c.total, 'wynik', 'wyniki', 'wyników')}`;
+}
+
+// ── STAN SORTOWANIA ────────────────────────────────────
+// Klucz: bodyId tabeli (np. 'wydatkiBody'), wartość: {col, dir}
+let SORT_STATE = {};
+
+// Sortuje tablicę wierszy wg podanej kolumny.
+// Automatycznie wykrywa czy wartości są numeryczne (obsługuje spacje, %, PLN, przecinek dec.).
+function sortData(data, col, dir) {
+  if (!col) return data;
+  return [...data].sort(function(a, b) {
+    var va = String(a[col] !== undefined ? a[col] : '');
+    var vb = String(b[col] !== undefined ? b[col] : '');
+    // Parsowanie polskich liczb: "1 234,56 zł" → 1234.56
+    function toNum(s) {
+      var c = s.replace(/[%\s\u00a0]/g,'')
+               .replace(/[^\d,.\-]/g,'')
+               .replace(/\.(?=\d{3}(,|$))/g,'')
+               .replace(',','.');
+      return parseFloat(c);
+    }
+    var na = toNum(va), nb = toNum(vb);
+    var cmp = 0;
+    if (!isNaN(na) && !isNaN(nb)) {
+      cmp = na - nb;
+    } else {
+      cmp = va.localeCompare(vb, 'pl', {sensitivity:'base'});
+    }
+    return dir === 'desc' ? -cmp : cmp;
+  });
+}
+
+// ── FLAGI NOTATEK ──────────────────────────────────────
+let notesLoading = false;
+
+let dataAbortController = null;
+
+// ─── debounce ───────────────────────────────────────────
+function debounce(fn, ms) {
+  let timer;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), ms);
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+//  PROGI ALERTÓW — DOMYŚLNE I PER KONTO
+// ═══════════════════════════════════════════════════════
+// Wspolna polityka kolorowania Google Ads i Meta Ads.
+// Liczby oznaczaja procent zmiany: 30 = 30%, nie 0.30.
+// Nadpisania: konto -> DOMYSLNE tej platformy -> wspolne wartosci ponizej.
+const COMPARISON_DEFAULTS = Object.freeze({
+  anomalia_spadek_amber: 30,
+  anomalia_spadek_red: 50,
+  anomalia_wzrost: 100,
+  trend_spadek_amber: 30,
+  trend_spadek_red: 50,
+  trend_wzrost: 30,
+});
+const COMPARISON_FIELDS = Object.freeze({
+  anomalia_spadek_amber: {header: 'Anomalia_spadek_amber', aliases: ['Spadek_amber'], max: 100},
+  anomalia_spadek_red:   {header: 'Anomalia_spadek_red', aliases: ['Anomalia_spadek', 'Spadek_red'], max: 100},
+  anomalia_wzrost:      {header: 'Anomalia_wzrost', aliases: []},
+  trend_spadek_amber:   {header: 'Trend_spadek_amber', aliases: ['Spadek_amber'], max: 100},
+  trend_spadek_red:     {header: 'Trend_spadek_red', aliases: ['Spadek_red'], max: 100},
+  trend_wzrost:        {header: 'Trend_wzrost', aliases: []},
+});
+const COMPARISON_WARNINGS = new Map();
+const COMPARISON_PAGES = new Set(['overview', 'metaOverview', 'anomalia', 'metaAnomalia', 'audyt', 'audytWart', 'metaAudyt', 'metaAudytWart']);
+
+// Nie uznajemy braku danych, NaN ani tekstu za zero. Zero jest poprawna wartoscia.
+function parseComparisonNumber(value) {
+  if (value === null || value === undefined || typeof value === 'boolean') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const text = String(value).trim().replace(/−/g, '-');
+  if (!/^[+-]?(?:\d+(?:[   ]\d{3})*)(?:[.,]\d+)?\s*%?$/.test(text)) return null;
+  const n = Number(text.replace(/[\s  %]/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+function warnComparisonConfig(platform, message) {
+  const key = platform + ':' + message;
+  if (!COMPARISON_WARNINGS.has(key)) {
+    COMPARISON_WARNINGS.set(key, {platform, message});
+    console.warn('[Progi porównań] ' + message);
+  }
+}
+
+function buildComparisonConfig(row, platform) {
+  const result = Object.create(null);
+  const account = String(row['Konto'] ?? '').trim();
+  Object.entries(COMPARISON_FIELDS).forEach(([field, spec]) => {
+    for (const header of [spec.header, ...spec.aliases]) {
+      const raw = row[header];
+      if (raw === undefined || raw === null || String(raw).trim() === '') continue;
+      const value = parseComparisonNumber(raw);
+      if (value === null || value <= 0 || (spec.max && value > spec.max)) {
+        warnComparisonConfig(platform, account + ': nieprawidłowy próg ' + header + '. Użyto kolejnej dostępnej wartości lub progu domyślnego.');
+        continue;
+      }
+      result[field] = {value, header};
+      break;
+    }
+  });
+  return result;
+}
+
+function getComparisonThresholds(platform, konto, accountId) {
+  const meta = platform === 'meta';
+  const cfg = (meta ? DATA._metaConfig : DATA._config) || {};
+  const map = (meta ? DATA._nameToIdMeta : DATA._nameToId) || {};
+  const id = String(accountId ?? '').trim() || map[konto] || konto;
+  const normalizedId = meta ? normalizeMetaAccountId(id) : String(id ?? '').replace(/[-\s]/g, '');
+  const accountRow = cfg[id] || cfg[normalizedId] || (meta ? cfg['act_' + normalizedId] : null);
+  const defaultRow = cfg['DOMYŚLNE'];
+  const cache = DATA._comparisonThresholdCache || (DATA._comparisonThresholdCache = new Map());
+  const key = JSON.stringify([platform, id, konto]);
+  if (cache.has(key)) return cache.get(key);
+  const t = {};
+  const sources = [];
+  Object.keys(COMPARISON_FIELDS).forEach(field => {
+    const own = accountRow && accountRow._comparison && accountRow._comparison[field];
+    const def = defaultRow && defaultRow._comparison && defaultRow._comparison[field];
+    const entry = own || def;
+    t[field] = entry ? entry.value : COMPARISON_DEFAULTS[field];
+    if (entry) sources.push((own ? 'konto ' + id : 'DOMYŚLNE') + ': ' + entry.header);
+  });
+  // Sprzecznych progow nie odwracamy po cichu. Oba progi spadku wracaja do wspolnej pary.
+  for (const mode of ['anomalia', 'trend']) {
+    const amber = mode + '_spadek_amber';
+    const red = mode + '_spadek_red';
+    if (t[amber] > t[red]) {
+      warnComparisonConfig(platform, String(konto || id) + ': ' + mode + ' - próg pomarańczowy jest większy od czerwonego. Dla tej pary użyto 30% / 50%.');
+      t[amber] = COMPARISON_DEFAULTS[amber];
+      t[red] = COMPARISON_DEFAULTS[red];
+    }
+  }
+  t.sources = [...new Set(sources)].join('; ') || 'wspólne progi domyślne';
+  cache.set(key, t);
+  return t;
+}
+
+// Wspolny klasyfikator: ta sama zmiana i te same progi = ten sam kolor.
+// Dzienny wzrost jest ostrzezeniem, wzrost trendu oznacza kierunek, nie rentownosc.
+function comparisonClass(change, mode, t) {
+  if (change === null || !Number.isFinite(change) || change < -100) return 'metric-empty';
+  const prefix = mode === 'anomaly' ? 'anomalia' : 'trend';
+  if (change <= -t[prefix + '_spadek_red']) return 'metric-red';
+  if (change <= -t[prefix + '_spadek_amber']) return 'metric-amber';
+  if (change >= t[prefix + '_wzrost']) return mode === 'anomaly' ? 'metric-amber' : 'metric-green';
+  return 'metric-gray';
+}
+
+function formatComparisonMetric(value, mode, platform, konto, accountId, inputKind = 'delta') {
+  const n = parseComparisonNumber(value);
+  const change = n === null ? null : (inputKind === 'ratio' ? n - 100 : n);
+  const t = getComparisonThresholds(platform, konto, accountId);
+  const cls = comparisonClass(change, mode, t);
+  if (cls === 'metric-empty') {
+    return '<span class="metric-empty" data-comparison="' + mode + '" title="Brak poprawnego porównania: brak danych, zerowa podstawa lub nieprawidłowa wartość">—</span>';
+  }
+  const prefix = mode === 'anomaly' ? 'anomalia' : 'trend';
+  const label = (inputKind === 'delta' && n > 0 ? '+' : '') + fmtPct(n);
+  const unit = inputKind === 'ratio'
+    ? 'Relacja do bazy: 100% = bez zmian. Zmiana: ' + (change > 0 ? '+' : '') + fmtPct(change) + '. '
+    : 'Zmiana względem bazy: 0% = bez zmian. ';
+  const meaning = mode === 'anomaly'
+    ? 'Anomalia dzienna: duży wzrost to ostrzeżenie, nie zielony sukces. '
+    : 'Trend: zielony oznacza wzrost raportowanej metryki, nie potwierdzenie rentowności. ';
+  const rules = 'Spadek od ' + t[prefix + '_spadek_amber'] + '%: pomarańczowy; od ' + t[prefix + '_spadek_red'] + '%: czerwony. Wzrost od ' + t[prefix + '_wzrost'] + '%: ' + (mode === 'anomaly' ? 'pomarańczowy' : 'zielony') + '. ';
+  return '<span class="' + cls + '" data-comparison="' + mode + '" data-change="' + change + '" title="' + escHtml(unit + meaning + rules + 'Konfiguracja: ' + t.sources) + '">' + escHtml(label) + '</span>';
+}
+
+const DAILY_COMPARISON_HEADERS = new Set(['Status kliknięć', 'Status wyświetleń', 'Zmiana % Wyświetleń (przedwczoraj → wczoraj)']);
+const GOOGLE_TREND_HEADERS = new Set(['Współczynnik kliknięc', 'Współczynnik kliknięć', 'Współczynnik wyświetleń', 'Współczynnik konwersji', 'Współczynnik Wart konwersji']);
+const META_COMPARISON_BASES = Object.freeze({
+  'Status wyświetleń': ['Wyświetlenia (wczoraj)', 'Wyświetlenia (przedwczoraj)'],
+  'Zmiana % Wyświetleń (przedwczoraj → wczoraj)': ['Wyświetlenia (wczoraj)', 'Wyświetlenia (przedwczoraj)'],
+  'Zmiana % Wyświetleń (30 dni vs 90 dni→30d)': ['Wyświetlenia (30 dni)', 'Wyświetlenia (90 dni → odpowiednik 30-dniowy)'],
+  'Zmiana % Zasięgu (30 dni vs 90 dni→30d)': ['Zasięg (30 dni)', 'Zasięg (90 dni → odpowiednik 30-dniowy)'],
+  'Zmiana % Wyniku (30 dni vs 90 dni→30d)': ['Wynik (30 dni)', 'Wynik (90 dni → odpowiednik 30-dniowy)'],
+  'Zmiana % Wartości konwersji (30 dni vs 90 dni→30d)': ['Wartość konwersji (30 dni)', 'Wartość konwersji (90 dni → odpowiednik 30-dniowy)'],
+});
+
+function comparisonColumnSpec(header, platform, bodyId) {
+  if ((bodyId === 'anomaliaBody' || bodyId === 'metaAnomaliaBody') && DAILY_COMPARISON_HEADERS.has(header)) {
+    return {mode: 'anomaly', inputKind: 'delta'};
+  }
+  if (platform === 'google' && (bodyId === 'audytBody' || bodyId === 'audytWartBody') && GOOGLE_TREND_HEADERS.has(header)) {
+    return {mode: 'trend', inputKind: 'ratio'};
+  }
+  if (platform === 'meta' && (bodyId === 'metaAudytBody' || bodyId === 'metaAudytWartBody') && header.includes('30 dni vs 90 dni') && META_COMPARISON_BASES[header]) {
+    return {mode: 'trend', inputKind: 'delta'};
+  }
+  return null;
+}
+
+// Przeglad i tabela szczegolowa korzystaja z identycznego zrodla porownania.
+// Awaryjne wyliczenie Meta dopuszczamy tylko przy dwoch znanych liczbach i bazie > 0.
+function comparisonCellValue(header, row, platform) {
+  const value = row && row[header];
+  if (value !== null && value !== undefined && String(value).trim() !== '') return value;
+  if (platform !== 'meta' || !META_COMPARISON_BASES[header]) return null;
+  const [currentHeader, baseHeader] = META_COMPARISON_BASES[header];
+  const current = parseComparisonNumber(row && row[currentHeader]);
+  const base = parseComparisonNumber(row && row[baseHeader]);
+  if (current === null || base === null || current < 0 || base <= 0) return null;
+  const pct = ((current - base) / base) * 100;
+  return Number.isFinite(pct) ? Math.round(pct * 100) / 100 : null;
+}
+
+// Sortujemy te same liczby, ktore widac w komorkach; brak porownania zawsze na koncu.
+function sortComparisonRows(rows, header, spec, platform, direction) {
+  function numberFor(row) {
+    const n = parseComparisonNumber(comparisonCellValue(header, row, platform));
+    const delta = n === null ? null : (spec.inputKind === 'ratio' ? n - 100 : n);
+    return delta === null || delta < -100 ? null : n;
+  }
+  return rows.map(row => ({row, value: numberFor(row)})).sort((a, b) => {
+    if (a.value === null && b.value === null) return 0;
+    if (a.value === null) return 1;
+    if (b.value === null) return -1;
+    return (a.value - b.value) * (direction === 'desc' ? -1 : 1);
+  }).map(item => item.row);
+}
+
+function renderComparisonHelp() {
+  const active = document.querySelector('.page.active');
+  const name = active ? active.id.replace('page-', '') : '';
+  const el = document.getElementById('comparisonLegend');
+  const notice = document.getElementById('comparisonConfigNotice');
+  if (!el || !notice) return;
+  el.hidden = !COMPARISON_PAGES.has(name);
+  const meta = name.startsWith('meta');
+  const warnings = [...COMPARISON_WARNINGS.values()].filter(w => w.platform === (meta ? 'meta' : 'google'));
+  notice.hidden = el.hidden || warnings.length === 0;
+  notice.textContent = warnings.map(w => w.message).join(' ');
+  document.getElementById('comparisonLegendBody').textContent =
+    'Te same zasady dla Google Ads i Meta Ads. Domyślnie: spadek od ' + COMPARISON_DEFAULTS.anomalia_spadek_amber + '% ostrzega, od ' + COMPARISON_DEFAULTS.anomalia_spadek_red + '% jest czerwony. Dzienny wzrost od ' + COMPARISON_DEFAULTS.anomalia_wzrost + '% ostrzega; wzrost trendu od ' + COMPARISON_DEFAULTS.trend_wzrost + '% jest zielony (wzrost metryki, nie rentowność). Progi konta mają pierwszeństwo — najedź na wartość, aby je zobaczyć. W audytach Google 100% oznacza brak zmian; w zmianach Meta brak zmian to 0%. Brak porównania pozostaje kreską.';
+}
+
+
+const DEFAULTS = {
+  budzet_min:      90,
+  budzet_max:     110,
+  roas_min:       300,
+  roas_amber:     500,
+  roas_red:       300,
+  konw_min:         1,
+  konw_pct_min:    75,
+  anomalia_spadek: 100, // legacy; alerty korzystaja z COMPARISON_DEFAULTS oraz _comparison
+  anomalia_wzrost: 100,
+};
+
+// buildConfig działa identycznie niezależnie od tego, czy kolumna "Konto" w arkuszu Progi
+// zawiera ID konta, czy literał "DOMYŚLNE" — to tylko klucz mapy, bez znaczenia semantycznego
+// na tym etapie.
+function buildConfig(rows) {
+  const cfg = {};
+  (rows || []).forEach(function(r) {
+    const konto = (r['Konto'] || '').trim();
+    if (!konto) return;
+    cfg[konto] = {
+      _comparison: buildComparisonConfig(r, 'google'),
+      budzet_min:      r['Budzet_min']      !== '' && r['Budzet_min']      !== undefined ? parseNum(r['Budzet_min'])      : undefined,
+      budzet_max:      r['Budzet_max']      !== '' && r['Budzet_max']      !== undefined ? parseNum(r['Budzet_max'])      : undefined,
+      roas_amber:      r['ROAS_amber']      !== '' && r['ROAS_amber']      !== undefined ? parseNum(r['ROAS_amber'])      : undefined,
+      roas_red:        r['ROAS_red']        !== '' && r['ROAS_red']        !== undefined ? parseNum(r['ROAS_red'])        : undefined,
+      konw_min:        r['Konw_min']        !== '' && r['Konw_min']        !== undefined ? parseNum(r['Konw_min'])        : undefined,
+      konw_pct_min:    r['Konw_pct_min']    !== '' && r['Konw_pct_min']    !== undefined ? parseNum(r['Konw_pct_min'])    : undefined,
+      anomalia_spadek: r['Anomalia_spadek'] !== '' && r['Anomalia_spadek'] !== undefined ? parseNum(r['Anomalia_spadek']) : undefined,
+      anomalia_wzrost: r['Anomalia_wzrost'] !== '' && r['Anomalia_wzrost'] !== undefined ? parseNum(r['Anomalia_wzrost']) : undefined,
+    };
+  });
+  return cfg;
+}
+
+// Mapa nazwa konta -> ID konta, budowana z zakładki Wydatki (jedyna, która ma zawsze
+// obecną kolumnę "ID Konta" dla każdego zsynchronizowanego konta — patrz buildNameToIdMap
+// przy DATA._nameToId / DATA._nameToIdMeta).
+//
+// getThresholds/getMetaThresholds przyjmują NAZWĘ konta (tak jak dotąd wszędzie w kodzie —
+// formatCell, renderOverview, renderMetaOverview — żadne wywołanie nie musiało się zmienić),
+// ale wewnątrz tłumaczą ją na ID i szukają progu w trzech krokach:
+//   1) wiersz w arkuszu Progi kluczowany tym ID (nadpisania per konto),
+//   2) wiersz "DOMYŚLNE" w tym samym arkuszu (polityka agencyjna, edytowalna bez kodu),
+//   3) hardkodowane DEFAULTS/META_DEFAULTS poniżej — ostatnia siatka bezpieczeństwa,
+//      gdyby plik Konfiguracja był akurat niedostępny.
+// Kaskada działa per pole, nie per cały wiersz — częściowo wypełniony wiersz per-konto
+// (np. tylko Budzet_min) nadal korzysta z DOMYŚLNE/DEFAULTS dla pozostałych pól.
+function getThresholds(konto) {
+  const cfg = DATA._config || {};
+  const nameToId = DATA._nameToId || {};
+  const id = nameToId[konto] || konto; // fallback: konto mogło już być ID
+  const idRow = cfg[id];
+  const defaultRow = cfg['DOMYŚLNE'];
+  function pick(field) {
+    if (idRow && idRow[field] !== undefined) return idRow[field];
+    if (defaultRow && defaultRow[field] !== undefined) return defaultRow[field];
+    return DEFAULTS[field];
+  }
+  return {
+    budzet_min:      pick('budzet_min'),
+    budzet_max:      pick('budzet_max'),
+    roas_amber:      pick('roas_amber'),
+    roas_red:        pick('roas_red'),
+    konw_min:        pick('konw_min'),
+    konw_pct_min:    pick('konw_pct_min'),
+    anomalia_spadek: pick('anomalia_spadek'),
+    anomalia_wzrost: pick('anomalia_wzrost'),
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+//  PROGI ALERTÓW META ADS — DOMYŚLNE I PER KONTO
+//  Arkusz "Progi - Meta Ads" w pliku Konfiguracja: kolumny Konto (ID konta lub "DOMYŚLNE"),
+//  Budzet_min, Budzet_max, ROAS_amber, ROAS_red, Konw_min, Konw_pct_min
+//  oraz wspólne progi anomalii/trendów.
+// ═══════════════════════════════════════════════════════
+const META_DEFAULTS = {
+  budzet_min:    80,
+  budzet_max:   110,
+  roas_amber:   500,
+  roas_red:     300,
+  spadek_amber:  30,
+  spadek_red:    50,
+  konw_min:       1,
+  konw_pct_min:  75,
+};
+
+function buildMetaConfig(rows) {
+  const cfg = {};
+  (rows || []).forEach(function(r) {
+    const konto = (r['Konto'] || '').trim();
+    if (!konto) return;
+    cfg[konto] = {
+      _comparison: buildComparisonConfig(r, 'meta'),
+      budzet_min:   r['Budzet_min']   !== '' && r['Budzet_min']   !== undefined ? parseNum(r['Budzet_min'])   : undefined,
+      budzet_max:   r['Budzet_max']   !== '' && r['Budzet_max']   !== undefined ? parseNum(r['Budzet_max'])   : undefined,
+      roas_amber:   r['ROAS_amber']   !== '' && r['ROAS_amber']   !== undefined ? parseNum(r['ROAS_amber'])   : undefined,
+      roas_red:     r['ROAS_red']     !== '' && r['ROAS_red']     !== undefined ? parseNum(r['ROAS_red'])     : undefined,
+      spadek_amber: r['Spadek_amber'] !== '' && r['Spadek_amber'] !== undefined ? parseNum(r['Spadek_amber']) : undefined,
+      spadek_red:   r['Spadek_red']   !== '' && r['Spadek_red']   !== undefined ? parseNum(r['Spadek_red'])   : undefined,
+      konw_min:     r['Konw_min']     !== '' && r['Konw_min']     !== undefined ? parseNum(r['Konw_min'])     : undefined,
+      konw_pct_min: r['Konw_pct_min'] !== '' && r['Konw_pct_min'] !== undefined ? parseNum(r['Konw_pct_min']) : undefined,
+    };
+  });
+  return cfg;
+}
+
+// Patrz komentarz przy getThresholds() — identyczna kaskada ID → DOMYŚLNE → META_DEFAULTS,
+// tylko przez mapę DATA._nameToIdMeta (budowaną z zakładki Wydatki pliku Meta Ads).
+function getMetaThresholds(konto, accountId) {
+  const cfg = DATA._metaConfig || {};
+  const nameToId = DATA._nameToIdMeta || {};
+  // ID z wiersza ma pierwszeństwo; zgodność z ID zapisanymi z prefiksem act_ lub bez niego.
+  const id = String(accountId ?? '').trim() || nameToId[konto] || konto;
+  const normalizedId = normalizeMetaAccountId(id);
+  const idRow = cfg[id] || cfg[normalizedId] || cfg['act_' + normalizedId];
+  const defaultRow = cfg['DOMYŚLNE'];
+  function pick(field) {
+    if (idRow && idRow[field] !== undefined) return idRow[field];
+    if (defaultRow && defaultRow[field] !== undefined) return defaultRow[field];
+    return META_DEFAULTS[field];
+  }
+  return {
+    budzet_min:   pick('budzet_min'),
+    budzet_max:   pick('budzet_max'),
+    roas_amber:   pick('roas_amber'),
+    roas_red:     pick('roas_red'),
+    spadek_amber: pick('spadek_amber'),
+    spadek_red:   pick('spadek_red'),
+    konw_min:     pick('konw_min'),
+    konw_pct_min: pick('konw_pct_min'),
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+//  CSV / DANE
+// ═══════════════════════════════════════════════════════
+function csvUrl(gid, sheetId) {
+  return `https://docs.google.com/spreadsheets/d/${sheetId || SHEET_ID}/export?format=csv&gid=${gid}`;
+}
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let cur = '';
+  let inQ = false;
+  const src = String(text || '').replace(/^\uFEFF/, '');
+
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (inQ) {
+      if (c === '"') {
+        if (src[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = false;
+      } else {
+        cur += c;
+      }
+      continue;
+    }
+    if (c === '"') inQ = true;
+    else if (c === ',') { row.push(cur); cur = ''; }
+    else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+    else if (c !== '\r') cur += c;
+  }
+
+  if (cur !== '' || row.length || src.endsWith(',')) {
+    row.push(cur);
+    rows.push(row);
+  }
+  return rows.filter(r => r.some(v => String(v).trim() !== ''));
+}
+
+
+function validateMetaMonthlyHeaders(rows, text) {
+  if (/^\s*(?:<!doctype|<html|<head|<body)/i.test(text)) {
+    throw new Error('Raport miesięczny Meta: serwer zwrócił stronę HTML zamiast CSV. Sprawdź dostęp do arkusza i GID.');
+  }
+  const headers = (rows[0] || []).map(h => String(h).trim());
+  const missing = META_MONTHLY_HEADERS.filter(h => !headers.includes(h));
+  const duplicate = META_MONTHLY_HEADERS.filter(h => headers.filter(v => v === h).length > 1);
+  if (missing.length || duplicate.length) {
+    const details = [
+      missing.length ? 'Brak kolumn: ' + missing.join('; ') : '',
+      duplicate.length ? 'Powtórzone kolumny: ' + duplicate.join('; ') : '',
+    ].filter(Boolean).join('. ');
+    throw new Error('Raport miesięczny Meta ma niezgodny format. Uruchom zaktualizowany skrypt Meta Ads i sprawdź GID zakładki Raport_Miesieczny. ' + details);
+  }
+}
+
+async function fetchCsv(gid, signal, sheetId, validateMonthly = false) {
+  const r = await fetch(csvUrl(gid, sheetId), { signal });
+  if (!r.ok) throw new Error(`HTTP ${r.status} dla GID ${gid}`);
+  const text = await r.text();
+  const rows = parseCsv(text);
+  // Walidacja przed sprawdzeniem liczby danych: działa również dla samych nagłówków.
+  if (validateMonthly) validateMetaMonthlyHeaders(rows, text);
+  const headers = (rows[0] || []).map(h => h.trim());
+  const result = rows.slice(1).map(vals => {
+    const obj = {};
+    headers.forEach((k,i) => {
+      if (!k) return;
+      const v = (vals[i] || '').trim();
+      if (!(k in obj) || obj[k] === '') obj[k] = v;
+    });
+    return obj;
+  }).filter(row => Object.values(row).some(v => v !== ''));
+  Object.defineProperty(result, '_headers', { value: headers, enumerable: false });
+  return result;
+}
+
+// Wersja dla arkuszy adresowanych po nazwie zakładki (np. arkusz Meta Ads)
+function csvUrlByName(sheetId, sheetName) {
+  return `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+}
+async function fetchCsvByName(sheetId, sheetName, signal) {
+  const r = await fetch(csvUrlByName(sheetId, sheetName), { signal });
+  if (!r.ok) throw new Error(`HTTP ${r.status} dla zakładki "${sheetName}"`);
+  const text = await r.text();
+  const rows = parseCsv(text);
+  if (rows.length < 2) return [];
+  const headers = rows[0];
+  return rows.slice(1).map(vals => {
+    const obj = {};
+    headers.forEach((h,i) => {
+      const k=h.trim(); if(!k) return;
+      const v=(vals[i]||'').trim();
+      if (!(k in obj) || obj[k] === '') obj[k] = v;
+    });
+    return obj;
+  }).filter(r => Object.values(r).some(v => v !== ''));
+}
+
+function parseNum(s) {
+  if (s === undefined || s === null || s === '') return 0;
+  const c = String(s)
+    .replace(/[%\s\u00a0]/g, '')
+    .replace(/[^\d,.\-]/g, '')
+    .replace(/\.(?=\d{3}(,|$))/g, '')
+    .replace(/,/g, '.');
+  const parts = c.split('.');
+  const cleaned = parts.length > 2
+    ? parts.slice(0, -1).join('') + '.' + parts[parts.length - 1]
+    : c;
+  return parseFloat(cleaned) || 0;
+}
+
+function fmtZl(n)  { return Math.round(n).toLocaleString('pl-PL')+' zł'; }
+function fmtPct(n) { return n.toFixed(2).replace('.', ',')+' %'; }
+
+// ═══════════════════════════════════════════════════════
+//  FORMATOWANIE KOMÓREK
+// ═══════════════════════════════════════════════════════
+// Przyjmuje próg `t` z getThresholds()/getMetaThresholds() — jeśli brak, spada na DEFAULTS (Google).
+function statusBadge(val, t) {
+  t = t || DEFAULTS;
+  const n = parseNum(val);
+  const cls = n > t.budzet_max ? 'b-red' : n < t.budzet_min ? 'b-amber' : 'b-green';
+  return `<span class="badge ${cls}">${escHtml(val)}</span>`;
+}
+function ratioBadge(val) {
+  const n = parseNum(val);
+  const cls = n>=100?'b-green':n>=80?'b-amber':'b-red';
+  return `<span class="badge ${cls}">${escHtml(val)}</span>`;
+}
+// Odznaka ROAS z progami per-konto (roas_amber/roas_red); bez `t` spada na DEFAULTS (systemowe).
+function roasBadge(val, t) {
+  t = t || DEFAULTS;
+  const n = parseNum(val);
+  const cls = n >= t.roas_amber ? 'b-green' : n >= t.roas_red ? 'b-amber' : 'b-red';
+  return `<span class="badge ${cls}">${escHtml(val)}</span>`;
+}
+function deltaBadge(val) {
+  if (!val||val.trim()==='') return `<span class="delta-flat">—</span>`;
+  const n = parseNum(val);
+  if (n>5)  return `<span class="delta-up">▲ ${escHtml(val)}</span>`;
+  if (n<-5) return `<span class="delta-down">▼ ${escHtml(val)}</span>`;
+  return `<span class="delta-flat">${escHtml(val)}</span>`;
+}
+const RATIO_COLS  = new Set(['Współczynnik kliknięc','Współczynnik kliknięć','Współczynnik wyświetleń','Współczynnik konwersji','Współczynnik Wart konwersji','Porównanie konwersji z poprzednim miesiącem']);
+const DELTA_COLS  = new Set([
+  'Status kliknięć','Status wyświetleń',
+  'Zmiana % Wyświetleń (przedwczoraj → wczoraj)',
+  'Zmiana % Wyświetleń (30 dni vs 90 dni→30d)',
+  'Zmiana % Zasięgu (30 dni vs 90 dni→30d)',
+  'Zmiana % Częstotliwości (30 dni vs 90 dni→30d)',
+  'Zmiana % Wyniku (30 dni vs 90 dni→30d)',
+]);
+const BUDG_COLS   = new Set(['Status','Status budżetu']);
+const ROAS_COLS   = new Set(['ROAS']);
+// `konto` i `platform` ('google'|'meta') pozwalają dobrać właściwe, per-kontowe progi
+// budżetu zamiast sztywnych wartości — patrz statusBadge().
+
+// Pusta komórka i nieprawidłowa wartość to null, natomiast 0 pozostaje zerem.
+// W CSV z GAS liczba 20 (lub "20,00%") oznacza 20%, NIE 0,2.
+function parseMetaForecastChange(value) {
+  if (value === undefined || value === null || String(value).trim() === '') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const text = String(value).trim().replace(/−/g, '-');
+  if (!/^[+-]?(?:\d+(?:[   ]\d{3})*)(?:[.,]\d+)?\s*%?$/.test(text)) return null;
+  const n = Number(text.replace(/[\s  %]/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatMetaForecastChange(value, konto, accountId) {
+  const pct = parseMetaForecastChange(value);
+  if (pct === null) return '<span class="metric-empty" title="Brak porównania w raporcie miesięcznym">—</span>';
+  const t = getMetaThresholds(konto, accountId);
+  // Konw_pct_min jest nadal progiem relacji (100 = poziom poprzedniego miesiąca).
+  // Przeliczenie dotyczy tylko koloru. Wyświetlamy zmianę z kolumny O, bez przeliczania prognozy.
+  const cls = ratioClass(String(100 + pct), t.konw_pct_min, 100);
+  const label = (pct > 0 ? '+' : '') + fmtPct(pct);
+  return metricText(label, cls);
+}
+
+function formatCell(h,val,konto,platform,accountId,bodyId,row) {
+  const comparison = comparisonColumnSpec(h, platform, bodyId);
+  if (comparison) {
+    const value = row ? comparisonCellValue(h, row, platform) : val;
+    return formatComparisonMetric(value, comparison.mode, platform, konto, accountId, comparison.inputKind);
+  }
+  val = val === null || val === undefined ? '' : String(val);
+  if (val.trim()==='') return '<span class="metric-empty">—</span>';
+  if (platform === 'meta' && h === META_MONTHLY_FIELDS.change) return formatMetaForecastChange(val, konto, accountId);
+  if (BUDG_COLS.has(h))  return statusBadge(val, platform === 'meta' ? getMetaThresholds(konto, accountId) : getThresholds(konto));
+  if (RATIO_COLS.has(h)) return ratioBadge(val);
+  if (DELTA_COLS.has(h)) return deltaBadge(val);
+  if (ROAS_COLS.has(h))  return roasBadge(val, platform === 'meta' ? getMetaThresholds(konto, accountId) : getThresholds(konto));
+  const isNum = /^-?[\d\s\u00a0]+([,.][\d]+)?%?\s*(zł)?$/.test(val.trim());
+  return isNum ? `<span class="mono">${escHtml(val)}</span>` : escHtml(val);
+}
+
+// ═══════════════════════════════════════════════════════
+//  FILTRY (tabele danych)
+// ═══════════════════════════════════════════════════════
+function getFilters() {
+  return { q: document.getElementById('searchInput').value.toLowerCase().trim() };
+}
+// Podświetla fragment tekstu pasujący do aktywnego zapytania wyszukiwania (np. w kolumnie Konto)
+function highlightMatch(text) {
+  const {q} = getFilters();
+  const s = String(text ?? '');
+  if (!q) return escHtml(s);
+  const idx = s.toLowerCase().indexOf(q);
+  if (idx === -1) return escHtml(s);
+  return escHtml(s.slice(0, idx)) + '<mark class="search-hl">' + escHtml(s.slice(idx, idx + q.length)) + '</mark>' + escHtml(s.slice(idx + q.length));
+}
+function normalizeRows(rows) {
+  return rows.map(r => {
+    const konto = (r['Konto']||'').trim();
+    return { ...r, konto };
+  });
+}
+function filterRows(rows, platform) {
+  const {q} = getFilters();
+  return rows.filter(r => !q || (r.konto || '').toLowerCase().includes(q) ||
+    (platform === 'meta' && String(r['Nazwa zestawu reklam'] || '').toLowerCase().includes(q)));
+}
+
+// ═══════════════════════════════════════════════════════
+//  TABELA DYNAMICZNA Z SORTOWANIEM
+// ═══════════════════════════════════════════════════════
+// Kolumny techniczne (surowe ID), ukrywane domyślnie w tabelach szczegółowych - nie niosą wartości dla przeglądającego
+const HIDDEN_COLS = new Set(['ID Konta','ID Zestawu','Data','Data i godzina aktualizacji']);
+
+function renderDynamicTable(rawData, headId, bodyId, platform) {
+  const headEl=document.getElementById(headId), bodyEl=document.getElementById(bodyId);
+  if (!headEl||!bodyEl) return;
+  const pageName = bodyId.replace(/Body$/, '');
+  const safeData = rawData || [];
+  const monthlyHeaders = bodyId === 'metaMiesiecznyBody' ? (safeData._headers || []) : [];
+  if (!safeData.length && !monthlyHeaders.length) {
+    headEl.innerHTML='';
+    bodyEl.innerHTML='<tr><td colspan="99" style="text-align:center;color:var(--muted);padding:24px">Brak danych</td></tr>';
+    PAGE_COUNTS[pageName] = {shown: 0, total: 0};
+    updateResultsCountDisplay();
+    return;
+  }
+  // Filtrujemy kolumny wewnętrzne ('_...') oraz techniczne ID
+  const headers = [...new Set([...monthlyHeaders, ...safeData.flatMap(r => Object.keys(r))])]
+    .filter(h => !h.startsWith('_') && h.trim() !== '' && !HIDDEN_COLS.has(h));
+  // "Konto" musi być zawsze pierwszą (a więc przypiętą) kolumną — niezależnie od kolejności
+  // kolumn w źródłowym arkuszu, żeby zamrożona kolumna zawsze pokazywała nazwę konta, a nie
+  // np. datę aktualizacji, jeśli akurat ta jest pierwsza w CSV.
+  const kontoIdx = headers.indexOf('Konto');
+  if (kontoIdx > 0) {
+    headers.splice(kontoIdx, 1);
+    headers.unshift('Konto');
+  }
+
+  // Aktualny stan sortowania dla tej tabeli
+  const ss = SORT_STATE[bodyId] || {col: null, dir: 'asc'};
+
+  // Nagłówki z klasami sortowania i ikonką strzałki
+  headEl.innerHTML = '<tr>' + headers.map(function(h) {
+    const isSortCol = ss.col === h;
+    const cls = 'sortable' + (isSortCol ? ' sort-' + ss.dir : '');
+    const label = bodyId === 'metaMiesiecznyBody' ? (META_MONTHLY_LABELS[h] || h) : h;
+    return '<th class="' + cls + '" title="' + escHtml(h) + '" data-body="' + escHtml(bodyId) + '" data-col="' + escHtml(h) + '" onclick="handleSortClick(this)">'
+      + escHtml(label) + '<span class="sort-arrow"></span></th>';
+  }).join('') + '</tr>';
+
+  // Filtrowanie + sortowanie
+  let rows = filterRows(normalizeRows(safeData), platform);
+  if (ss.col) {
+    const spec = comparisonColumnSpec(ss.col, platform, bodyId);
+    rows = spec ? sortComparisonRows(rows, ss.col, spec, platform, ss.dir) : sortData(rows, ss.col, ss.dir);
+  }
+
+  PAGE_COUNTS[pageName] = {shown: rows.length, total: safeData.length};
+  updateResultsCountDisplay();
+
+  if (!rows.length) {
+    bodyEl.innerHTML='<tr><td colspan="' + headers.length + '" class="table-message">' + (safeData.length ? 'Brak wyników' : 'Brak danych') + '</td></tr>';
+    return;
+  }
+  bodyEl.innerHTML = rows.map(function(r) {
+    return '<tr>' + headers.map(function(h) {
+      if (h === 'Konto') {
+        const raw = r[h] !== undefined ? String(r[h]) : '';
+        return '<td>' + (raw.trim() ? highlightMatch(raw) : '<span class="metric-empty">—</span>') + '</td>';
+      }
+      if (platform === 'meta' && h === 'Nazwa zestawu reklam') return '<td>' + highlightMatch(r[h] || '') + '</td>';
+      return '<td>' + formatCell(h, r[h] !== undefined ? String(r[h]) : '', r.konto, platform, r['ID Konta'], bodyId, r) + '</td>';
+    }).join('') + '</tr>';
+  }).join('');
+}
+
+// Obsługa kliknięcia nagłówka — przełącza asc/desc lub ustawia nową kolumnę
+function handleSortClick(th) {
+  const bodyId = th.dataset.body;
+  const col    = th.dataset.col;
+  const cur    = SORT_STATE[bodyId] || {col: null, dir: 'asc'};
+
+  if (cur.col === col) {
+    // Ta sama kolumna: odwróć kierunek
+    SORT_STATE[bodyId] = {col: col, dir: cur.dir === 'asc' ? 'desc' : 'asc'};
+  } else {
+    // Nowa kolumna: zacznij od asc
+    SORT_STATE[bodyId] = {col: col, dir: 'asc'};
+  }
+
+  // Przerenderuj właściwą zakładkę
+  const tabRenderMap = {
+    wydatkiBody:        renderWydatki,
+    audytBody:          renderAudyt,
+    audytWartBody:      renderAudytWart,
+    wynikiBody:         renderWyniki,
+    wartKonwBody:       renderWartKonw,
+    anomaliaBody:       renderAnomalia,
+    metaDziennyBody:    renderMetaDzienny,
+    metaWydatkiBody:    renderMetaWydatki,
+    metaMiesiecznyBody: renderMetaMiesieczny,
+    metaAudytBody:      renderMetaAudyt,
+    metaAudytWartBody:  renderMetaAudytWart,
+    metaWartoscKonwersjiBody: renderMetaWartoscKonwersji,
+    metaAnomaliaBody:   renderMetaAnomalia,
+  };
+  if (tabRenderMap[bodyId]) tabRenderMap[bodyId]();
+}
+
+// ═══════════════════════════════════════════════════════
+//  ŁADOWANIE DANYCH
+// ═══════════════════════════════════════════════════════
+async function loadAllData() {
+  if (dataAbortController) {
+    dataAbortController.abort();
+  }
+  dataAbortController = new AbortController();
+  const signal = dataAbortController.signal;
+
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('loading');
+  document.getElementById('statusBody').innerHTML =
+    '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr>';
+  document.getElementById('metaOverviewBody').innerHTML =
+    '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr>';
+
+  try {
+    const sheetKeys = ['wydatki','audyt','audytWart','wyniki','wartKonw','anomalia','notatki'];
+    const metaKeys  = Object.keys(META_GIDS);
+    const configKeys = Object.keys(CONFIG_SHEET_NAMES); // ['progiGoogle', 'progiMeta']
+
+    const [sheetResults, metaResults, configResults] = await Promise.all([
+      Promise.allSettled(sheetKeys.map(key => fetchCsvByName(SHEET_ID, SHEET_NAMES[key], signal))),
+      META_SHEET_ID
+        ? Promise.allSettled(metaKeys.map(key => fetchCsv(META_GIDS[key], signal, META_SHEET_ID, key === 'metaMiesieczny')))
+        : Promise.resolve(metaKeys.map(() => ({status:'fulfilled', value: []}))),
+      CONFIG_SHEET_ID
+        ? Promise.allSettled(configKeys.map(key => fetchCsvByName(CONFIG_SHEET_ID, CONFIG_SHEET_NAMES[key], signal)))
+        : Promise.resolve(configKeys.map(() => ({status:'fulfilled', value: []}))),
+    ]);
+
+    if (signal.aborted) return;
+    const sheetErrors = [];
+    const loaded = {};
+    let metaMonthlyError = META_SHEET_ID ? '' : 'Nie skonfigurowano pliku Meta Ads.';
+
+    sheetResults.forEach((result, i) => {
+      const key = sheetKeys[i];
+      if (result.status === 'fulfilled') {
+        loaded[key] = result.value;
+        return;
+      }
+      if (result.reason && result.reason.name === 'AbortError') throw result.reason;
+      loaded[key] = [];
+      sheetErrors.push(`${key}: ${result.reason && result.reason.message ? result.reason.message : result.reason}`);
+    });
+
+    metaResults.forEach((result, i) => {
+      const key = metaKeys[i];
+      if (result.status === 'fulfilled') {
+        loaded[key] = result.value;
+        return;
+      }
+      if (result.reason && result.reason.name === 'AbortError') throw result.reason;
+      loaded[key] = [];
+      const message = result.reason && result.reason.message ? result.reason.message : String(result.reason);
+      sheetErrors.push(`${key}: ${message}`);
+      if (key === 'metaMiesieczny') metaMonthlyError = message;
+    });
+
+    configResults.forEach((result, i) => {
+      const key = configKeys[i];
+      if (result.status === 'fulfilled') {
+        loaded[key] = result.value;
+        return;
+      }
+      if (result.reason && result.reason.name === 'AbortError') throw result.reason;
+      loaded[key] = [];
+      sheetErrors.push(`${key}: ${result.reason && result.reason.message ? result.reason.message : result.reason}`);
+    });
+
+    const {wydatki,audyt,audytWart,wyniki,wartKonw,anomalia,notatki,metaWydatki,metaDzienny,metaMiesieczny,metaAudyt,metaAudytWart,metaAnomalia,metaWartoscKonwersji,metaKonta,progiGoogle,progiMeta} = loaded;
+    DATA = { wydatki, audyt, audytWart, wyniki, wartKonw, anomalia, notatki, metaWydatki, metaDzienny, metaMiesieczny, metaAudyt, metaAudytWart, metaAnomalia,  metaWartoscKonwersji, metaKonta, progiGoogle, progiMeta };
+
+    DATA._metaMonthlyError = metaMonthlyError;
+    DATA._metaIssues = metaMonthlyError ? [metaMonthlyError] : [];
+    DATA._metaIssues.push(...collectMetaDataIssues(DATA));
+
+    COMPARISON_WARNINGS.clear();
+    DATA._idx    = buildIndexes(DATA);
+    DATA._config = buildConfig(DATA.progiGoogle);
+    DATA._metaConfig = buildMetaConfig(DATA.progiMeta);
+    // Mapy nazwa konta -> ID konta, budowane z Wydatki (jedyna zakładka, która ZAWSZE ma
+    // kolumnę "ID Konta" dla każdego zsynchronizowanego konta) — używane przez
+    // getThresholds()/getMetaThresholds() do kluczowania progów po ID, nie po nazwie.
+    DATA._nameToId     = buildNameToIdMap(DATA.wydatki);
+    DATA._nameToIdMeta = buildNameToIdMap(DATA.metaWydatki);
+
+    NOTES = mapNotatkiRows(notatki);
+
+    updateReportDates();
+    const updateEl = document.getElementById('lastUpdate');
+    if (updateEl) updateEl.title = sheetErrors.join('\n');
+    renderMetaDataNotice();
+    if (sheetErrors.length) console.warn('[Dashboard] Nie wszystkie arkusze zostały pobrane:', sheetErrors);
+
+    GOOGLE_KONTA = [...new Set([
+      ...wydatki.map(r=>(r['Konto']||'').trim()),
+      ...audyt.map(r=>(r['Konto']||'').trim()),
+      ...wyniki.map(r=>(r['Konto']||'').trim()),
+      ...wartKonw.map(r=>(r['Konto']||'').trim()),
+      ...anomalia.map(r=>(r['Konto']||'').trim()),
+    ])].filter(Boolean).sort();
+    META_KONTA = [...new Set([
+      ...(metaWydatki||[]).map(r=>(r['Konto']||'').trim()),
+      ...(metaDzienny||[]).map(r=>(r['Konto']||'').trim()),
+      ...(metaMiesieczny||[]).map(r=>(r['Konto']||'').trim()),
+    ])].filter(Boolean).sort();
+    ALL_KONTA = [...new Set([...GOOGLE_KONTA, ...META_KONTA])].sort();
+    updateKontoDropdowns();
+
+    renderAll();
+    renderNotesList();
+  } catch(e) {
+    if (e.name === 'AbortError') return;
+    document.getElementById('lastUpdate').textContent='Błąd: '+e.message;
+    const errorRow = `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:24px">Błąd pobierania danych: ${escHtml(e.message)}<br><br>Upewnij się, że arkusz jest publiczny:<br><em>Udostępnij → Każdy z linkiem → Przeglądający</em></td></tr>`;
+    document.getElementById('statusBody').innerHTML = errorRow;
+    document.getElementById('metaOverviewBody').innerHTML = errorRow.replace('colspan="8"', 'colspan="10"');
+    console.error('[Dashboard]',e);
+  } finally {
+    // Starsze, anulowane pobranie nie może wyłączyć stanu nowego odświeżania.
+    if (dataAbortController && dataAbortController.signal === signal) {
+      btn.classList.remove('loading');
+      dataAbortController = null;
+    }
+  }
+}
+
+// Buduje mapę Nazwa konta -> ID konta z wierszy zakładki Wydatki (jedynej, która ma
+// gwarantowaną kolumnę "ID Konta" dla każdego zsynchronizowanego konta). Używana przez
+// getThresholds()/getMetaThresholds() do tłumaczenia nazwy (jak dotąd używanej wszędzie
+// w kodzie) na ID, po którym kluczowana jest konfiguracja progów w osobnym pliku.
+function buildNameToIdMap(rows) {
+  const map = {};
+  (rows || []).forEach(r => {
+    const name = (r['Konto'] || '').trim();
+    const id = (r['ID Konta'] || '').trim();
+    if (name && id) map[name] = id;
+  });
+  return map;
+}
+
+function buildIndexes(d) {
+  const duplicates = [];
+  const idx = arr => {
+    const map = {};
+    normalizeRows(arr || []).forEach(r => {
+      if (r.konto) {
+        if (map[r.konto]) duplicates.push(r.konto);
+        map[r.konto] = r;
+      }
+    });
+    return map;
+  };
+  const result = {
+    W:  idx(d.wydatki),
+    A:  idx(d.audyt),
+    Wn: idx(d.wyniki),
+    Wk: idx(d.wartKonw),
+    An: idx(d.anomalia),
+  };
+  if (duplicates.length) {
+    const unique = [...new Set(duplicates)];
+    console.warn('[Dashboard] Duplikaty kont w danych (last-write-wins):', unique);
+    const el = document.getElementById('lastUpdate');
+    if (el) {
+      const extra = 'Wykryto zduplikowane wiersze kont w arkuszu. Wyświetlany jest ostatni wiersz dla każdego konta: ' + unique.join(', ');
+      el.title = [el.title, extra].filter(Boolean).join('\n');
+    }
+  }
+  return result;
+}
+
+// Filtruje dropdown "Konto" w formularzu wg wybranej platformy — zapobiega
+// pomieszaniu kont Google Ads i Meta Ads o tej samej nazwie.
+function onPlatformaChange() {
+  const platforma = document.getElementById('notePlatforma').value;
+  const sel = document.getElementById('noteKonto');
+  const cur = sel.value;
+  if (!platforma) {
+    sel.innerHTML = '<option value="">— najpierw wybierz platformę —</option>';
+    sel.disabled = true;
+    return;
+  }
+  const list = platforma === 'Meta Ads' ? META_KONTA : GOOGLE_KONTA;
+  sel.disabled = false;
+  sel.innerHTML = '<option value="">— wybierz konto —</option>' +
+    list.map(k=>`<option value="${escHtml(k)}"${k===cur?' selected':''}>${escHtml(k)}</option>`).join('');
+}
+
+function updateKontoDropdowns() {
+  onPlatformaChange(); // odśwież listę kont w formularzu dla aktualnie wybranej platformy
+  const fsel = document.getElementById('dzFilterKonto');
+  const fcur = fsel.value;
+  fsel.innerHTML = '<option value="">Wszystkie konta</option>' +
+    ALL_KONTA.map(k=>`<option value="${escHtml(k)}"${k===fcur?' selected':''}>${escHtml(k)}</option>`).join('');
+}
+
+function applyFilters() {
+  const activeId = document.querySelector('.page.active')?.id?.replace('page-', '');
+  const pageRenderers = {
+    overview:        renderOverview,
+    wydatki:         renderWydatki,
+    audyt:           renderAudyt,
+    audytWart:       renderAudytWart,
+    wyniki:          renderWyniki,
+    wartKonw:        renderWartKonw,
+    anomalia:        renderAnomalia,
+    metaDzienny:     renderMetaDzienny,
+    metaWydatki:     renderMetaWydatki,
+    metaMiesieczny:  renderMetaMiesieczny,
+    metaAudyt:       renderMetaAudyt,
+    metaAudytWart:   renderMetaAudytWart,
+    metaWartoscKonwersji: renderMetaWartoscKonwersji,
+    metaAnomalia:    renderMetaAnomalia,
+    metaOverview:    renderMetaOverview,
+  };
+  if (activeId && activeId !== 'overview' && pageRenderers[activeId]) {
+    pageRenderers[activeId]();
+  }
+  renderOverview();
+  renderComparisonHelp();
+}
+
+function renderAll() {
+  renderOverview();
+  renderWydatki();
+  renderAudyt();
+  renderAudytWart();
+  renderWyniki();
+  renderWartKonw();
+  renderAnomalia();
+  renderMetaOverview();
+  renderMetaDzienny();
+  renderMetaWydatki();
+  renderMetaMiesieczny();
+  renderMetaAudyt();
+  renderMetaAudytWart();
+  renderMetaWartoscKonwersji();
+  renderMetaAnomalia();
+  renderComparisonHelp();
+}
+
+function metricText(value, cls) {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return '<span class="metric-empty">—</span>';
+  }
+  return `<span class="${cls || 'metric-gray'}">${escHtml(String(value))}</span>`;
+}
+
+// t: obiekt progów z getThresholds()/getMetaThresholds() — musi zawierać budzet_min/budzet_max.
+function budgetClass(value, t) {
+  t = t || DEFAULTS;
+  const n = parseNum(value);
+  if (!value || String(value).trim() === '') return 'metric-empty';
+  if (n > t.budzet_max) return 'metric-red';
+  if (n < t.budzet_min) return 'metric-amber';
+  return 'metric-gray';
+}
+
+function ratioClass(value, normalMin, greenMin) {
+  const n = parseNum(value);
+  if (!value || String(value).trim() === '') return 'metric-empty';
+  if (n >= greenMin) return 'metric-green';
+  if (n >= normalMin) return 'metric-gray';
+  if (n >= normalMin * 0.67) return 'metric-amber';
+  return 'metric-red';
+}
+
+// t: obiekt progów z getThresholds() — bez `t` spada na systemowe DEFAULTS.
+function roasClass(value, t) {
+  t = t || DEFAULTS;
+  const n = parseNum(value);
+  if (!value || String(value).trim() === '' || n <= 0) return 'metric-empty';
+  if (t.roas_amber > 0 && n >= t.roas_amber) return 'metric-green';
+  if (t.roas_red > 0 && n >= t.roas_red) return 'metric-gray';
+  if (t.roas_red > 0 && n >= t.roas_red * 0.75) return 'metric-amber';
+  return 'metric-red';
+}
+
+function renderOverview() {
+  const {W:iW, A:iA, Wn:iWn, Wk:iWk, An:iAn} = DATA._idx || buildIndexes(DATA);
+
+  const wydatki  = normalizeRows(DATA.wydatki || []);
+  const audyt    = normalizeRows(DATA.audyt || []);
+
+  // Zachowujemy kolejność kont znaną z zakładek Google Ads.
+  // Najpierw kolejność z „Wydatków” (główna tabela operacyjna), a konta występujące
+  // wyłącznie w innych raportach dopisujemy na końcu w kolejności źródłowej.
+  const googleAccountSources = [
+    DATA.wydatki || [],
+    DATA.audyt || [],
+    DATA.wyniki || [],
+    DATA.wartKonw || [],
+    DATA.anomalia || [],
+  ];
+  const seenGoogleAccounts = new Set();
+  const allKonta = [];
+  googleAccountSources.forEach(rows => {
+    (rows || []).forEach(r => {
+      const konto = String(r['Konto'] || '').trim();
+      if (konto && !seenGoogleAccounts.has(konto)) {
+        seenGoogleAccounts.add(konto);
+        allKonta.push(konto);
+      }
+    });
+  });
+  const {q} = getFilters();
+  const filtered = allKonta.filter(konto => !q || konto.toLowerCase().includes(q));
+
+  PAGE_COUNTS.overview = {shown: filtered.length, total: allKonta.length};
+  updateResultsCountDisplay();
+
+  const body = document.getElementById('statusBody');
+  if (!filtered.length) {
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Brak danych</td></tr>';
+    return;
+  }
+
+  body.innerHTML = filtered.map(konto => {
+    const w = iW[konto] || {};
+    const a = iA[konto] || {};
+    const wn = iWn[konto] || {};
+    const wk = iWk[konto] || {};
+    const an = iAn[konto] || {};
+    const t = getThresholds(konto);
+
+    const budget = w['Status'] || '';
+    const conversions = wn['Konwersje'] || '';
+    const conversionsClass = conversions !== '' && parseNum(conversions) < t.konw_min ? 'metric-red' : 'metric-gray';
+    const convVsPrev = wn['Porównanie konwersji z poprzednim miesiącem'] || '';
+    const impressionsTrend = a['Współczynnik wyświetleń'] ?? '';
+    const impressionsAnomaly = an['Status wyświetleń'] ?? '';
+    const roas = wk['ROAS'] || '';
+    // CPA — działa dla każdego konta (Sklep i Lead), w przeciwieństwie do ROAS, które ma
+    // sens tylko dla Sklepów (zakładka Wartość konwersji). Bez kolorowania na razie —
+    // nie ma jeszcze zdefiniowanego progu w Progi - Google Ads.
+    const cpa = wn['CPA'] || '';
+
+    return `<tr>
+      <td style="font-weight:700;font-family:'Montserrat',sans-serif">${highlightMatch(konto)}</td>
+      <td>${metricText(budget, budgetClass(budget, t))}</td>
+      <td>${metricText(conversions, conversionsClass)}</td>
+      <td>${metricText(convVsPrev, ratioClass(convVsPrev, t.konw_pct_min, 100))}</td>
+      <td>${formatComparisonMetric(impressionsTrend, 'trend', 'google', konto, a['ID Konta'] || w['ID Konta'], 'ratio')}</td>
+      <td>${formatComparisonMetric(impressionsAnomaly, 'anomaly', 'google', konto, an['ID Konta'] || w['ID Konta'])}</td>
+      <td>${metricText(roas, roasClass(roas, t))}</td>
+      <td>${metricText(cpa, 'metric-gray')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function openDziennikForKonto(konto, platforma) {
+  const btn = document.querySelector('.nav-item.nav-dziennik');
+  showPage('dziennik', btn);
+
+  const filterKontoSel = document.getElementById('dzFilterKonto');
+  if (filterKontoSel) filterKontoSel.value = konto;
+  const filterPlatformaSel = document.getElementById('dzFilterPlatforma');
+  if (filterPlatformaSel && platforma) filterPlatformaSel.value = platforma;
+  renderNotesList();
+
+  const formPlatformaSel = document.getElementById('notePlatforma');
+  if (formPlatformaSel && platforma) {
+    formPlatformaSel.value = platforma;
+    onPlatformaChange();
+  }
+  const formKontoSel = document.getElementById('noteKonto');
+  if (formKontoSel) formKontoSel.value = konto;
+}
+
+// ═══════════════════════════════════════════════════════
+//  POZOSTAŁE ZAKŁADKI
+// ═══════════════════════════════════════════════════════
+function renderWydatki()        { renderDynamicTable(DATA.wydatki        || [], 'wydatkiHead',        'wydatkiBody',    'google'); }
+function renderAudyt()          { renderDynamicTable(DATA.audyt          || [], 'audytHead',          'audytBody',      'google'); }
+function renderAudytWart()      { renderDynamicTable(DATA.audytWart      || [], 'audytWartHead',      'audytWartBody',  'google'); }
+function renderWyniki()         { renderDynamicTable(DATA.wyniki         || [], 'wynikiHead',         'wynikiBody',     'google'); }
+function renderAnomalia()       { renderDynamicTable(DATA.anomalia       || [], 'anomaliaHead',       'anomaliaBody',   'google'); }
+function renderWartKonw()       { renderDynamicTable(DATA.wartKonw       || [], 'wartKonwHead',       'wartKonwBody',   'google'); }
+// ═══════════════════════════════════════════════════════
+//  META ADS — PRZEGLĄD (jeden wiersz na ID konta + ID zestawu)
+// ═══════════════════════════════════════════════════════
+function pctChange(now, prev) {
+  if (!prev) return null;
+  return ((now - prev) / prev) * 100;
+}
+
+function indexMetaWydatki() {
+  const idx = Object.create(null);
+  (DATA.metaWydatki || []).forEach(r => {
+    const key = normalizeMetaAccountId(r['ID Konta']);
+    if (key && !idx[key]) idx[key] = r;
+  });
+  return idx;
+}
+
+function normalizeMetaAccountId(value) {
+  // Nie zamieniamy ID na Number: długie identyfikatory muszą pozostać tekstem.
+  return String(value ?? '').trim().replace(/^act_/i, '');
+}
+
+function metaRowKey(row) {
+  const accountId = normalizeMetaAccountId(row && row['ID Konta']);
+  const adsetId = String((row && row['ID Zestawu']) ?? '').trim();
+  return accountId && adsetId ? JSON.stringify([accountId, adsetId]) : '';
+}
+
+function indexMetaByAdset(rows) {
+  const idx = Object.create(null);
+  (rows || []).forEach(r => {
+    const key = metaRowKey(r);
+    if (key && !idx[key]) idx[key] = r;
+  });
+  return idx;
+}
+
+function collectMetaDataIssues(data) {
+  const issues = [];
+  for (const key of ['metaMiesieczny','metaDzienny','metaAudyt','metaAnomalia']) {
+    const rows = data[key] || [];
+    const seen = new Set();
+    let missing = 0, duplicates = 0;
+    rows.forEach(row => {
+      const id = metaRowKey(row);
+      if (!id) { missing++; return; }
+      if (seen.has(id)) duplicates++;
+      seen.add(id);
+    });
+    if (missing) issues.push(`${key}: ${missing} wierszy bez ID konta lub zestawu. Nie są łączone w Przeglądzie; pozostają widoczne w tabeli szczegółowej.`);
+    if (duplicates) issues.push(`${key}: ${duplicates} powtórzonych kluczy ID. Przegląd korzysta z pierwszego wiersza dla danego ID.`);
+  }
+  const monthly = data.metaMiesieczny || [];
+  const invalid = monthly.filter(r => {
+    const v = r[META_MONTHLY_FIELDS.change];
+    return v !== undefined && v !== null && String(v).trim() !== '' && parseMetaForecastChange(v) === null;
+  }).length;
+  if (invalid) issues.push(`Raport miesięczny: ${invalid} nieprawidłowych wartości zmiany prognozy. Zamiast nich pokazano kreskę.`);
+  const dates = getMetaReportTimestamps(monthly);
+  if (dates.length > 1) issues.push('Raport miesięczny zawiera różne czasy aktualizacji. Sprawdź, czy odświeżanie GAS zakończyło się dla całego raportu.');
+  return issues;
+}
+
+function getMetaReportTimestamps(rows) {
+  const values = [];
+  (rows || []).forEach(row => {
+    const raw = row && (row['Data i godzina aktualizacji'] ?? row['Data']);
+    const value = String(raw ?? '').trim();
+    if (value) values.push(value);
+  });
+  return [...new Set(values)];
+}
+
+function parseReportDate(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return null;
+
+  // Format GAS / Sheets: YYYY-MM-DD HH:mm:ss (sekundy są opcjonalne).
+  let m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(text);
+  if (m) {
+    const hh = m[4] !== undefined ? String(m[4]).padStart(2, '0') : '';
+    const mm = m[5] !== undefined ? m[5] : '';
+    const ss = m[6] !== undefined ? m[6] : '00';
+    const hasTime = hh !== '' && mm !== '';
+    return {
+      key: m[1] + '-' + m[2] + '-' + m[3] + ' ' + (hasTime ? hh + ':' + mm + ':' + ss : '00:00:00'),
+      label: m[3] + '.' + m[2] + '.' + m[1] + (hasTime ? ', ' + hh + ':' + mm : '')
+    };
+  }
+
+  // Format lokalny: DD.MM.YYYY HH:mm[:ss] (akceptujemy też / i - jako separator daty).
+  m = /^(\d{2})[.\/-](\d{2})[.\/-](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(text);
+  if (m) {
+    const hh = m[4] !== undefined ? String(m[4]).padStart(2, '0') : '';
+    const mm = m[5] !== undefined ? m[5] : '';
+    const ss = m[6] !== undefined ? m[6] : '00';
+    const hasTime = hh !== '' && mm !== '';
+    return {
+      key: m[3] + '-' + m[2] + '-' + m[1] + ' ' + (hasTime ? hh + ':' + mm + ':' + ss : '00:00:00'),
+      label: m[1] + '.' + m[2] + '.' + m[3] + (hasTime ? ', ' + hh + ':' + mm : '')
+    };
+  }
+  return null;
+}
+
+function getLatestReportDate(rowGroups) {
+  const candidates = [];
+  (rowGroups || []).forEach(rows => (rows || []).forEach(row => {
+    ['Data i godzina aktualizacji', 'Data'].forEach(header => {
+      const parsed = parseReportDate(row && row[header]);
+      if (parsed) candidates.push(parsed);
+    });
+  }));
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => a.key.localeCompare(b.key));
+  return candidates[candidates.length - 1];
+}
+
+function updateReportDates() {
+  const googleEl = document.getElementById('lastUpdate');
+  const metaEl = document.getElementById('metaReportUpdate');
+  const googleDate = getLatestReportDate([
+    DATA.wydatki, DATA.audyt, DATA.audytWart, DATA.wyniki, DATA.wartKonw, DATA.anomalia
+  ]);
+  const metaDate = getLatestReportDate([
+    DATA.metaWydatki, DATA.metaDzienny, DATA.metaMiesieczny, DATA.metaAudyt,
+    DATA.metaAudytWart, DATA.metaWartoscKonwersji, DATA.metaAnomalia
+  ]);
+
+  if (googleEl) {
+    googleEl.textContent = 'Google Ads: ' + (googleDate ? googleDate.label : 'brak daty');
+    googleEl.title = 'Data i godzina aktualizacji odczytane z danych źródłowych Google Ads.';
+  }
+  if (metaEl) {
+    if (DATA._metaMonthlyError) metaEl.textContent = 'Meta Ads: raport niedostępny';
+    else metaEl.textContent = 'Meta Ads: ' + (metaDate ? metaDate.label : 'brak daty');
+    metaEl.title = 'Data i godzina aktualizacji odczytane z danych źródłowych Meta Ads.';
+  }
+}
+
+function renderMetaDataNotice() {
+  const el = document.getElementById('metaDataNotice');
+  if (!el) return;
+  const active = document.querySelector('.page.active');
+  const issues = DATA._metaIssues || [];
+  el.hidden = !active || !active.id.startsWith('page-meta') || !issues.length;
+  el.innerHTML = issues.map(message => '<div>' + escHtml(message) + '</div>').join('');
+}
+
+function renderMetaMonthlyError(bodyId, colspan) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  body.innerHTML = `<tr><td colspan="${colspan}" class="table-message">Nie można wyświetlić raportu miesięcznego. Szczegóły znajdują się w komunikacie nad tabelą.</td></tr>`;
+  PAGE_COUNTS[bodyId.replace(/Body$/, '')] = {shown: 0, total: 0};
+  updateResultsCountDisplay();
+}
+
+function renderMetaOverview() {
+  const bodyEl = document.getElementById('metaOverviewBody');
+  if (!bodyEl) return;
+
+  if (DATA._metaMonthlyError) { renderMetaMonthlyError('metaOverviewBody', 10); return; }
+  const miesieczny = DATA.metaMiesieczny || [];
+  const dzIdx = indexMetaByAdset(DATA.metaDzienny || []);
+  const auIdx = indexMetaByAdset(DATA.metaAudyt || []);
+  const anIdx = indexMetaByAdset(DATA.metaAnomalia || []);
+  const wIdx = indexMetaWydatki();
+  const {q} = getFilters();
+
+  // Jeden wiersz na zestaw reklam. Konta układamy według kolejności z arkusza „Konta”,
+  // a zestawy reklam wewnątrz konta zachowują kolejność z raportu „Miesięczny”.
+  const accountOrder = new Map();
+  const accountOrderById = new Map();
+  (DATA.metaKonta || []).forEach((r, index) => {
+    const konto = String(r['Konto'] || r['Nazwa konta'] || r['Nazwa Konta'] || '').trim();
+    if (konto && !accountOrder.has(konto)) accountOrder.set(konto, index);
+    const id = normalizeMetaAccountId(r['ID Konta']);
+    if (id && !accountOrderById.has(id)) accountOrderById.set(id, index);
+  });
+
+  const seen = new Set();
+  const allRows = miesieczny
+    .map((r, sourceIndex) => ({ r, sourceIndex }))
+    .filter(({r}) => {
+      const key = metaRowKey(r);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => {
+      const kontoA = (a.r['Konto'] || '').trim();
+      const kontoB = (b.r['Konto'] || '').trim();
+      const idA = normalizeMetaAccountId(a.r['ID Konta']);
+      const idB = normalizeMetaAccountId(b.r['ID Konta']);
+      const orderA = accountOrderById.get(idA) ?? accountOrder.get(kontoA) ?? Number.MAX_SAFE_INTEGER;
+      const orderB = accountOrderById.get(idB) ?? accountOrder.get(kontoB) ?? Number.MAX_SAFE_INTEGER;
+      return orderA - orderB || a.sourceIndex - b.sourceIndex;
+    })
+    .map(({r}) => r);
+
+  const rows = allRows.filter(r => {
+    if (!q) return true;
+    const konto = (r['Konto'] || '').trim().toLowerCase();
+    const adset = (r['Nazwa zestawu reklam'] || '').trim().toLowerCase();
+    return konto.includes(q) || adset.includes(q);
+  });
+
+  PAGE_COUNTS.metaOverview = {shown: rows.length, total: allRows.length};
+  updateResultsCountDisplay();
+
+  if (!rows.length) {
+    bodyEl.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">Brak danych</td></tr>';
+    return;
+  }
+
+  bodyEl.innerHTML = rows.map(m => {
+    const konto = (m['Konto'] || '').trim();
+    const adset = (m['Nazwa zestawu reklam'] || '').trim();
+    const key = metaRowKey(m);
+    const d = dzIdx[key] || {};
+    const a = auIdx[key] || {};
+    const an = anIdx[key] || {};
+    const accountId = m['ID Konta'];
+    const w = wIdx[normalizeMetaAccountId(accountId)] || {};
+    const t = getMetaThresholds(konto, accountId);
+
+    const budget = w['Status'] || '';
+    const costToday = d['Koszt dziś'] || '';
+    const impressionsToday = d['Wyświetlenia dziś'] || '';
+    const costYesterday = an['Koszt (wczoraj)'] || '';
+    const dayChange = comparisonCellValue('Status wyświetleń', an, 'meta');
+    // Wszystkie wyniki miesięczne pochodzą z tego samego wiersza Raport_Miesieczny.
+    // Nie odczytujemy starej zakładki Wyniki i nie liczymy prognozy ponownie.
+    const monthlyResult = m[META_MONTHLY_FIELDS.result] ?? '';
+    const forecastChange = m[META_MONTHLY_FIELDS.change] ?? '';
+    const trend30d = comparisonCellValue('Zmiana % Wyświetleń (30 dni vs 90 dni→30d)', a, 'meta');
+
+    return `<tr>
+      <td style="font-weight:700;font-family:'Montserrat',sans-serif">${highlightMatch(konto)}</td>
+      <td>${adset ? highlightMatch(adset) : '<span class="metric-empty">—</span>'}</td>
+      <td>${metricText(budget, budgetClass(budget, t))}</td>
+      <td class="mono"><span class="metric-gray">${costToday !== '' ? escHtml(String(costToday)) : '—'}</span></td>
+      <td class="mono"><span class="metric-gray">${impressionsToday !== '' ? escHtml(String(impressionsToday)) : '—'}</span></td>
+      <td class="mono"><span class="metric-gray">${costYesterday !== '' ? escHtml(String(costYesterday)) : '—'}</span></td>
+      <td>${formatComparisonMetric(dayChange, 'anomaly', 'meta', konto, accountId)}</td>
+      <td class="mono"><span class="metric-gray">${monthlyResult !== '' ? escHtml(String(monthlyResult)) : '—'}</span></td>
+      <td>${formatMetaForecastChange(forecastChange, konto, accountId)}</td>
+      <td>${formatComparisonMetric(trend30d, 'trend', 'meta', konto, accountId)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderMetaDzienny()    { renderDynamicTable(DATA.metaDzienny    || [], 'metaDziennyHead',    'metaDziennyBody',    'meta'); }
+function renderMetaWydatki()    { renderDynamicTable(DATA.metaWydatki    || [], 'metaWydatkiHead',    'metaWydatkiBody',    'meta'); }
+function renderMetaMiesieczny() {
+  if (DATA._metaMonthlyError) {
+    document.getElementById('metaMiesiecznyHead').innerHTML = '';
+    renderMetaMonthlyError('metaMiesiecznyBody', 13);
+    return;
+  }
+  renderDynamicTable(DATA.metaMiesieczny || [], 'metaMiesiecznyHead', 'metaMiesiecznyBody', 'meta');
+}
+function renderMetaAudyt()      { renderDynamicTable(DATA.metaAudyt      || [], 'metaAudytHead',      'metaAudytBody',      'meta'); }
+function renderMetaAudytWart()  { renderDynamicTable(DATA.metaAudytWart  || [], 'metaAudytWartHead',  'metaAudytWartBody',  'meta'); }
+function renderMetaWartoscKonwersji() { renderDynamicTable(DATA.metaWartoscKonwersji || [], 'metaWartoscKonwersjiHead', 'metaWartoscKonwersjiBody', 'meta'); }
+function renderMetaAnomalia()   { renderDynamicTable(DATA.metaAnomalia   || [], 'metaAnomaliaHead',   'metaAnomaliaBody',   'meta'); }
+
+// ═══════════════════════════════════════════════════════
+//  DZIENNIK — API
+// ═══════════════════════════════════════════════════════
+// Mapuje surowe wiersze arkusza "Notatki" (ID, Data, Konto, Platforma, Treść) na format używany w UI,
+// posortowane od najnowszych (po dacie DD.MM.YYYY).
+function parseNoteDate(s) {
+  const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec((s||'').trim());
+  return m ? new Date(+m[3], +m[2]-1, +m[1]).getTime() : 0;
+}
+function mapNotatkiRows(rows) {
+  return (rows || []).map(r => ({
+    id: r['ID'] || '',
+    data: r['Data'] || '',
+    konto: r['Konto'] || '',
+    platforma: r['Platforma'] || '',
+    tresc: r['Treść'] || '',
+  })).sort((a,b) => parseNoteDate(b.data) - parseNoteDate(a.data));
+}
+
+// Odświeża tylko arkusz Notatki (np. po zapisie/usunięciu przez Web App) bez przeładowania całego dashboardu
+async function refreshNotatki() {
+  notesLoading = true;
+  renderNotesList();
+  try {
+    const rows = await fetchCsvByName(SHEET_ID, SHEET_NAMES.notatki, undefined);
+    DATA.notatki = rows;
+    NOTES = mapNotatkiRows(rows);
+  } catch(e) {
+    console.warn('[Dziennik] Błąd odświeżania notatek:', e);
+  } finally {
+    notesLoading = false;
+  }
+  renderNotesList();
+  renderOverview();
+  renderMetaOverview();
+}
+
+async function saveNote() {
+  if (!WEBAPP_URL) { showToast('Ustaw WEBAPP_URL w kodzie dashboardu.','err'); return; }
+  const platforma = document.getElementById('notePlatforma').value.trim();
+  const konto     = document.getElementById('noteKonto').value.trim();
+  const tresc     = document.getElementById('noteTresc').value.trim();
+  if (!platforma) { showFeedback('Wybierz platformę.','err'); return; }
+  if (!konto)     { showFeedback('Wybierz konto.','err'); return; }
+  if (!tresc)     { showFeedback('Wpisz opis zmiany.','err'); return; }
+
+  const btn = document.getElementById('saveNoteBtn');
+  btn.disabled = true;
+  btn.classList.add('saving');
+
+  try {
+    const r = await fetch(WEBAPP_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action:'add', konto, platforma, tresc }),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status} podczas zapisu`);
+    const data = await r.json();
+    if (data.status === 'error') throw new Error(data.error);
+
+    document.getElementById('noteTresc').value = '';
+    showFeedback('Notatka zapisana.','ok');
+    showToast('Notatka zapisana ✓','ok');
+    await refreshNotatki();
+  } catch(e) {
+    showFeedback('Błąd zapisu: '+e.message,'err');
+    showToast('Błąd: '+e.message,'err');
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('saving');
+  }
+}
+
+let pendingDeleteId = null;
+function confirmDelete(id, konto, data) {
+  pendingDeleteId = id;
+  document.getElementById('confirmDesc').textContent =
+    `Usunąć notatkę konta „${konto}" z ${data}? Tej operacji nie można cofnąć.`;
+  document.getElementById('confirmOverlay').classList.add('show');
+  document.getElementById('confirmOkBtn').onclick = () => executeDelete(id);
+}
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('show');
+  pendingDeleteId = null;
+}
+
+async function executeDelete(id) {
+  closeConfirm();
+  if (!WEBAPP_URL) return;
+  const safeId = String(id || '').trim();
+  if (!safeId) { showToast('Nieprawidłowy identyfikator notatki.','err'); return; }
+
+  try {
+    const r = await fetch(WEBAPP_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action:'delete', id: safeId }),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status} podczas usuwania`);
+    const data = await r.json();
+    if (data.status === 'error') throw new Error(data.error);
+    NOTES = NOTES.filter(n => String(n.id) !== safeId);
+    showToast('Notatka usunięta.','ok');
+    renderNotesList();
+    renderOverview();
+  } catch(e) {
+    showToast('Błąd usuwania: '+e.message,'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  DZIENNIK — RENDEROWANIE LISTY
+// ═══════════════════════════════════════════════════════
+function renderNotesList() {
+  if (notesLoading) {
+    const listEl = document.getElementById('notesList');
+    if (listEl) listEl.innerHTML = '<div class="notes-loading"><div class="spinner"></div> Ładowanie notatek…</div>';
+    return;
+  }
+
+  const fKonto     = document.getElementById('dzFilterKonto').value;
+  const fPlatforma = document.getElementById('dzFilterPlatforma').value;
+  const fSearch    = (document.getElementById('dzSearch').value||'').toLowerCase().trim();
+
+  let filtered = NOTES.filter(n => {
+    const konto = String(n.konto || '');
+    const platforma = String(n.platforma || '');
+    const tresc = String(n.tresc || '');
+    if (fKonto     && konto     !== fKonto)     return false;
+    if (fPlatforma && platforma !== fPlatforma) return false;
+    if (fSearch && !tresc.toLowerCase().includes(fSearch) && !konto.toLowerCase().includes(fSearch)) return false;
+    return true;
+  });
+
+  const countEl = document.getElementById('notesCount');
+  countEl.textContent = filtered.length === NOTES.length
+    ? `${NOTES.length} ${plural(NOTES.length,'notatka','notatki','notatek')}`
+    : `${filtered.length} z ${NOTES.length} ${plural(filtered.length,'notatka','notatki','notatek')}`;
+
+  const listEl = document.getElementById('notesList');
+  if (!filtered.length) {
+    listEl.innerHTML = `<div class="notes-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      <p>${NOTES.length===0?'Brak notatek — dodaj pierwszą zmianę.':'Brak wyników dla wybranych filtrów.'}</p>
+    </div>`;
+    return;
+  }
+
+  listEl.innerHTML = '<div class="notes-list">' + filtered.map(n => {
+    const entries = String(n.tresc || '').split('\n').filter(e => e.trim() !== '');
+    const entriesHtml = entries.map(e => {
+      const match = e.match(/^\[(\d{2}:\d{2})\]\s*([\s\S]*)/);
+      if (match) {
+        return '<div class="note-entry"><span class="note-entry-time">' + escHtml(match[1]) + '</span><span class="note-entry-text">' + escHtml(match[2]) + '</span></div>';
+      }
+      return '<div class="note-entry"><span class="note-entry-text">' + escHtml(e) + '</span></div>';
+    }).join('');
+    const cnt = entries.length;
+    const cntLabel = cnt === 1 ? '1 wpis' : cnt < 5 ? cnt + ' wpisy' : cnt + ' wpisów';
+    return '<div class="note-card">' +
+      '<div class="note-card-top">' +
+        '<span class="note-date">' + escHtml(n.data) + '</span>' +
+        '<span class="note-konto-badge">' + escHtml(n.konto) + '</span>' +
+        '<span class="note-platforma-badge ' + platformaClass(n.platforma) + '">' + escHtml(n.platforma || '—') + '</span>' +
+        '<span class="note-entry-count">' + cntLabel + '</span>' +
+        '<div class="note-actions">' +
+          '<button class="note-del-btn" data-id="' + escHtml(String(n.id ?? '')) + '" data-konto="' + escHtml(n.konto) + '" data-data="' + escHtml(n.data) + '" onclick="confirmDeleteFromBtn(this)" title="Usuń cały dzień">Usuń</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="note-entries">' + entriesHtml + '</div>' +
+    '</div>';
+  }).join('') + '</div>';
+}
+
+function confirmDeleteFromBtn(el) {
+  confirmDelete(el.dataset.id, el.dataset.konto, el.dataset.data);
+}
+
+function plural(n,one,few,many){
+  if(n===1) return one;
+  if(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)) return few;
+  return many;
+}
+function platformaClass(platforma) {
+  return String(platforma || '') === 'Meta Ads' ? 'meta' : 'google';
+}
+function escHtml(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// ═══════════════════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════════════════
+function showFeedback(msg, cls) {
+  const el = document.getElementById('formFeedback');
+  el.textContent = msg;
+  el.className = 'form-feedback ' + cls;
+  setTimeout(()=>{ el.textContent=''; el.className='form-feedback'; }, 3500);
+}
+let toastTimer;
+function showToast(msg, cls='ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast show ${cls}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 3000);
+}
+function showWebappHelp() {
+  showToast('Otwórz plik apps_script.gs i postępuj zgodnie z instrukcją.','ok');
+}
+
+// ═══════════════════════════════════════════════════════
+//  NAWIGACJA
+// ═══════════════════════════════════════════════════════
+const PAGE_TITLES={
+  overview:'Przegląd',wydatki:'Wydatki',audyt:'Audyt',audytWart:'Audyt - wart',
+  wyniki:'Wyniki',wartKonw:'Wartość konwersji',anomalia:'Anomalia',
+  metaOverview:'Meta — Przegląd',metaWydatki:'Meta — Wydatki',metaDzienny:'Meta — Dzienny',metaMiesieczny:'Meta — Wyniki',metaWartoscKonwersji:'Meta — Wartość konwersji',metaAudyt:'Meta — Audyt',metaAudytWart:'Meta — Audyt - wart',metaAnomalia:'Meta — Anomalia',
+  dziennik:'Dziennik zmian'
+};
+
+function canonicalPageName(name) {
+  const target = name === 'metaWyniki' ? 'metaMiesieczny' : name;
+  return Object.prototype.hasOwnProperty.call(PAGE_TITLES, target) && document.getElementById('page-' + target)
+    ? target : 'overview';
+}
+
+function applyPageUI(name, btn) {
+  const canonical = canonicalPageName(name);
+  btn = canonical === name ? (btn || navButtonForPage(canonical)) : navButtonForPage(canonical);
+  name = canonical;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const el=document.getElementById('page-'+name);
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('pageTitle').textContent=PAGE_TITLES[name]||name;
+
+  const badge = document.getElementById('platformBadge');
+  if (badge) {
+    if (name.startsWith('meta')) { badge.textContent='Meta Ads'; badge.className='platform-badge meta'; }
+    else if (name==='dziennik')  { badge.textContent='';         badge.className='platform-badge'; }
+    else                          { badge.textContent='Google Ads'; badge.className='platform-badge google'; }
+  }
+
+  const hf = document.getElementById('headerFilters');
+  hf.style.display = name==='dziennik' ? 'none' : 'flex';
+  const search = document.getElementById('searchInput');
+  const searchLabel = name.startsWith('meta') ? 'Szukaj konta lub zestawu…' : 'Szukaj konta…';
+  search.placeholder = searchLabel;
+  search.setAttribute('aria-label', searchLabel);
+
+  if (name==='dziennik') {
+    document.getElementById('webappBanner').style.display = WEBAPP_URL ? 'none' : 'flex';
+  }
+  renderMetaDataNotice();
+  renderComparisonHelp();
+  if (name !== 'dziennik') applyFilters();
+  updateResultsCountDisplay();
+}
+
+// Zmienia zakładkę i zapisuje ją w URL (#nazwa-zakładki), żeby dało się ją
+// zapisać w zakładkach przeglądarki, wysłać w linku lub wrócić do niej po odświeżeniu.
+function showPage(name,btn) {
+  const canonical = canonicalPageName(name);
+  if (canonical !== name) btn = navButtonForPage(canonical);
+  name = canonical;
+  applyPageUI(name, btn);
+  if (window.location.hash.slice(1) !== name) {
+    history.pushState({page: name}, '', '#' + name);
+  }
+}
+
+function navButtonForPage(name) {
+  name = canonicalPageName(name);
+  return document.querySelector(`.nav-item[onclick*="'${name}'"]`);
+}
+
+
+function restorePageFromLocation() {
+  const raw = (window.location.hash || '').slice(1);
+  const name = canonicalPageName(raw);
+  applyPageUI(name, navButtonForPage(name));
+  if (raw !== name || !history.state || history.state.page !== name) {
+    history.replaceState({page: name}, '', '#' + name);
+  }
+}
+
+window.addEventListener('popstate', restorePageFromLocation);
+window.addEventListener('hashchange', restorePageFromLocation);
+
+// ═══════════════════════════════════════════════════════
+//  DEBOUNCED HANDLERS
+// ═══════════════════════════════════════════════════════
+const _applyFiltersDebounced    = debounce(applyFilters,    180);
+const _renderNotesListDebounced = debounce(renderNotesList, 180);
+
+document.addEventListener('DOMContentLoaded', () => {
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', _applyFiltersDebounced);
+  }
+  const dzSearch = document.getElementById('dzSearch');
+  if (dzSearch) {
+    dzSearch.addEventListener('input', _renderNotesListDebounced);
+  }
+
+
+  // Stary adres #metaWyniki także otworzy scalony raport miesięczny.
+  restorePageFromLocation();
+});
+
+// Skrót „/” — fokus na wyszukiwarce aktywnej strony. Esc — czyści wyszukiwarkę.
+document.addEventListener('keydown', (e) => {
+  const targetTag = (e.target && e.target.tagName || '').toLowerCase();
+  const isEditable = targetTag === 'input' || targetTag === 'textarea' || targetTag === 'select' || (e.target && e.target.isContentEditable);
+
+  if (e.key === '/' && !isEditable) {
+    e.preventDefault();
+    const activeEl = document.querySelector('.page.active');
+    const pageId = activeEl ? activeEl.id.replace('page-', '') : '';
+    const input = document.getElementById(pageId === 'dziennik' ? 'dzSearch' : 'searchInput');
+    if (input) input.focus();
+    return;
+  }
+
+  if (e.key === 'Escape' && isEditable) {
+    const id = e.target.id;
+    if ((id === 'searchInput' || id === 'dzSearch') && e.target.value) {
+      e.target.value = '';
+      e.target.dispatchEvent(new Event('input'));
+    }
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+loadAllData();
+</script>
+</body>
+</html>
