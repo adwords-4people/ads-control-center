@@ -1,0 +1,1015 @@
+//  FORMATOWANIE KOMÓREK
+// ═══════════════════════════════════════════════════════
+// Przyjmuje próg `t` z getThresholds()/getMetaThresholds() — jeśli brak, spada na DEFAULTS (Google).
+function statusBadge(val, t) {
+  t = t || DEFAULTS;
+  const n = parseNum(val);
+  const cls = n > t.budzet_max ? 'b-red' : n < t.budzet_min ? 'b-amber' : 'b-green';
+  return `<span class="badge ${cls}">${escHtml(val)}</span>`;
+}
+function ratioBadge(val) {
+  const n = parseNum(val);
+  const cls = n>=100?'b-green':n>=80?'b-amber':'b-red';
+  return `<span class="badge ${cls}">${escHtml(val)}</span>`;
+}
+// Odznaka ROAS z progami per-konto (roas_amber/roas_red); bez `t` spada na DEFAULTS (systemowe).
+function roasBadge(val, t) {
+  t = t || DEFAULTS;
+  const n = parseNum(val);
+  const cls = n >= t.roas_amber ? 'b-green' : n >= t.roas_red ? 'b-amber' : 'b-red';
+  return `<span class="badge ${cls}">${escHtml(val)}</span>`;
+}
+function deltaBadge(val) {
+  if (!val||val.trim()==='') return `<span class="delta-flat">—</span>`;
+  const n = parseNum(val);
+  if (n>5)  return `<span class="delta-up">▲ ${escHtml(val)}</span>`;
+  if (n<-5) return `<span class="delta-down">▼ ${escHtml(val)}</span>`;
+  return `<span class="delta-flat">${escHtml(val)}</span>`;
+}
+const RATIO_COLS  = new Set(['Współczynnik kliknięc','Współczynnik kliknięć','Współczynnik wyświetleń','Współczynnik konwersji','Współczynnik Wart konwersji','Porównanie konwersji z poprzednim miesiącem']);
+const DELTA_COLS  = new Set([
+  'Status kliknięć','Status wyświetleń',
+  'Zmiana % Wyświetleń (przedwczoraj → wczoraj)',
+  'Zmiana % Wyświetleń (30 dni vs 90 dni→30d)',
+  'Zmiana % Zasięgu (30 dni vs 90 dni→30d)',
+  'Zmiana % Częstotliwości (30 dni vs 90 dni→30d)',
+  'Zmiana % Wyniku (30 dni vs 90 dni→30d)',
+]);
+const BUDG_COLS   = new Set(['Status','Status budżetu']);
+const ROAS_COLS   = new Set(['ROAS']);
+// `konto` i `platform` ('google'|'meta') pozwalają dobrać właściwe, per-kontowe progi
+// budżetu zamiast sztywnych wartości — patrz statusBadge().
+
+// Pusta komórka i nieprawidłowa wartość to null, natomiast 0 pozostaje zerem.
+// W CSV z GAS liczba 20 (lub "20,00%") oznacza 20%, NIE 0,2.
+function parseMetaForecastChange(value) {
+  if (value === undefined || value === null || String(value).trim() === '') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const text = String(value).trim().replace(/−/g, '-');
+  if (!/^[+-]?(?:\d+(?:[   ]\d{3})*)(?:[.,]\d+)?\s*%?$/.test(text)) return null;
+  const n = Number(text.replace(/[\s  %]/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatMetaForecastChange(value, konto, accountId) {
+  const pct = parseMetaForecastChange(value);
+  if (pct === null) return '<span class="metric-empty" title="Brak porównania w raporcie miesięcznym">—</span>';
+  const t = getMetaThresholds(konto, accountId);
+  // Konw_pct_min jest nadal progiem relacji (100 = poziom poprzedniego miesiąca).
+  // Przeliczenie dotyczy tylko koloru. Wyświetlamy zmianę z kolumny O, bez przeliczania prognozy.
+  const cls = ratioClass(String(100 + pct), t.konw_pct_min, 100);
+  const label = (pct > 0 ? '+' : '') + fmtPct(pct);
+  return metricText(label, cls);
+}
+
+function formatCell(h,val,konto,platform,accountId,bodyId,row) {
+  const comparison = comparisonColumnSpec(h, platform, bodyId);
+  if (comparison) {
+    const value = row ? comparisonCellValue(h, row, platform) : val;
+    return formatComparisonMetric(value, comparison.mode, platform, konto, accountId, comparison.inputKind);
+  }
+  val = val === null || val === undefined ? '' : String(val);
+  if (val.trim()==='') return '<span class="metric-empty">—</span>';
+  if (platform === 'meta' && h === META_MONTHLY_FIELDS.change) return formatMetaForecastChange(val, konto, accountId);
+  if (BUDG_COLS.has(h))  return statusBadge(val, platform === 'meta' ? getMetaThresholds(konto, accountId) : getThresholds(konto));
+  if (RATIO_COLS.has(h)) return ratioBadge(val);
+  if (DELTA_COLS.has(h)) return deltaBadge(val);
+  if (ROAS_COLS.has(h))  return roasBadge(val, platform === 'meta' ? getMetaThresholds(konto, accountId) : getThresholds(konto));
+  const isNum = /^-?[\d\s\u00a0]+([,.][\d]+)?%?\s*(zł)?$/.test(val.trim());
+  return isNum ? `<span class="mono">${escHtml(val)}</span>` : escHtml(val);
+}
+
+// ═══════════════════════════════════════════════════════
+//  FILTRY (tabele danych)
+// ═══════════════════════════════════════════════════════
+function getFilters() {
+  return { q: document.getElementById('searchInput').value.toLowerCase().trim() };
+}
+// Podświetla fragment tekstu pasujący do aktywnego zapytania wyszukiwania (np. w kolumnie Konto)
+function highlightMatch(text) {
+  const {q} = getFilters();
+  const s = String(text ?? '');
+  if (!q) return escHtml(s);
+  const idx = s.toLowerCase().indexOf(q);
+  if (idx === -1) return escHtml(s);
+  return escHtml(s.slice(0, idx)) + '<mark class="search-hl">' + escHtml(s.slice(idx, idx + q.length)) + '</mark>' + escHtml(s.slice(idx + q.length));
+}
+function normalizeRows(rows) {
+  return rows.map(r => {
+    const konto = (r['Konto']||'').trim();
+    return { ...r, konto };
+  });
+}
+function filterRows(rows, platform) {
+  const {q} = getFilters();
+  return rows.filter(r => !q || (r.konto || '').toLowerCase().includes(q) ||
+    (platform === 'meta' && String(r['Nazwa zestawu reklam'] || '').toLowerCase().includes(q)));
+}
+
+// ═══════════════════════════════════════════════════════
+//  TABELA DYNAMICZNA Z SORTOWANIEM
+// ═══════════════════════════════════════════════════════
+// Kolumny techniczne (surowe ID), ukrywane domyślnie w tabelach szczegółowych - nie niosą wartości dla przeglądającego
+const HIDDEN_COLS = new Set(['ID Konta','ID Zestawu','Data','Data i godzina aktualizacji']);
+
+function renderDynamicTable(rawData, headId, bodyId, platform) {
+  const headEl=document.getElementById(headId), bodyEl=document.getElementById(bodyId);
+  if (!headEl||!bodyEl) return;
+  const pageName = bodyId.replace(/Body$/, '');
+  const safeData = rawData || [];
+  const monthlyHeaders = bodyId === 'metaMiesiecznyBody' ? (safeData._headers || []) : [];
+  if (!safeData.length && !monthlyHeaders.length) {
+    headEl.innerHTML='';
+    bodyEl.innerHTML='<tr><td colspan="99" style="text-align:center;color:var(--muted);padding:24px">Brak danych</td></tr>';
+    PAGE_COUNTS[pageName] = {shown: 0, total: 0};
+    updateResultsCountDisplay();
+    return;
+  }
+  // Filtrujemy kolumny wewnętrzne ('_...') oraz techniczne ID
+  const headers = [...new Set([...monthlyHeaders, ...safeData.flatMap(r => Object.keys(r))])]
+    .filter(h => !h.startsWith('_') && h.trim() !== '' && !HIDDEN_COLS.has(h));
+  // "Konto" musi być zawsze pierwszą (a więc przypiętą) kolumną — niezależnie od kolejności
+  // kolumn w źródłowym arkuszu, żeby zamrożona kolumna zawsze pokazywała nazwę konta, a nie
+  // np. datę aktualizacji, jeśli akurat ta jest pierwsza w CSV.
+  const kontoIdx = headers.indexOf('Konto');
+  if (kontoIdx > 0) {
+    headers.splice(kontoIdx, 1);
+    headers.unshift('Konto');
+  }
+
+  // Aktualny stan sortowania dla tej tabeli
+  const ss = SORT_STATE[bodyId] || {col: null, dir: 'asc'};
+
+  // Nagłówki z klasami sortowania i ikonką strzałki
+  headEl.innerHTML = '<tr>' + headers.map(function(h) {
+    const isSortCol = ss.col === h;
+    const cls = 'sortable' + (isSortCol ? ' sort-' + ss.dir : '');
+    const label = bodyId === 'metaMiesiecznyBody' ? (META_MONTHLY_LABELS[h] || h) : h;
+    return '<th class="' + cls + '" title="' + escHtml(h) + '" data-body="' + escHtml(bodyId) + '" data-col="' + escHtml(h) + '" onclick="handleSortClick(this)">'
+      + escHtml(label) + '<span class="sort-arrow"></span></th>';
+  }).join('') + '</tr>';
+
+  // Filtrowanie + sortowanie
+  let rows = filterRows(normalizeRows(safeData), platform);
+  if (ss.col) {
+    const spec = comparisonColumnSpec(ss.col, platform, bodyId);
+    rows = spec ? sortComparisonRows(rows, ss.col, spec, platform, ss.dir) : sortData(rows, ss.col, ss.dir);
+  }
+
+  PAGE_COUNTS[pageName] = {shown: rows.length, total: safeData.length};
+  updateResultsCountDisplay();
+
+  if (!rows.length) {
+    bodyEl.innerHTML='<tr><td colspan="' + headers.length + '" class="table-message">' + (safeData.length ? 'Brak wyników' : 'Brak danych') + '</td></tr>';
+    return;
+  }
+  bodyEl.innerHTML = rows.map(function(r) {
+    return '<tr>' + headers.map(function(h) {
+      if (h === 'Konto') {
+        const raw = r[h] !== undefined ? String(r[h]) : '';
+        return '<td>' + (raw.trim() ? highlightMatch(raw) : '<span class="metric-empty">—</span>') + '</td>';
+      }
+      if (platform === 'meta' && h === 'Nazwa zestawu reklam') return '<td>' + highlightMatch(r[h] || '') + '</td>';
+      return '<td>' + formatCell(h, r[h] !== undefined ? String(r[h]) : '', r.konto, platform, r['ID Konta'], bodyId, r) + '</td>';
+    }).join('') + '</tr>';
+  }).join('');
+}
+
+// Obsługa kliknięcia nagłówka — przełącza asc/desc lub ustawia nową kolumnę
+function handleSortClick(th) {
+  const bodyId = th.dataset.body;
+  const col    = th.dataset.col;
+  const cur    = SORT_STATE[bodyId] || {col: null, dir: 'asc'};
+
+  if (cur.col === col) {
+    // Ta sama kolumna: odwróć kierunek
+    SORT_STATE[bodyId] = {col: col, dir: cur.dir === 'asc' ? 'desc' : 'asc'};
+  } else {
+    // Nowa kolumna: zacznij od asc
+    SORT_STATE[bodyId] = {col: col, dir: 'asc'};
+  }
+
+  // Przerenderuj właściwą zakładkę
+  const tabRenderMap = {
+    wydatkiBody:        renderWydatki,
+    audytBody:          renderAudyt,
+    audytWartBody:      renderAudytWart,
+    wynikiBody:         renderWyniki,
+    wartKonwBody:       renderWartKonw,
+    anomaliaBody:       renderAnomalia,
+    metaDziennyBody:    renderMetaDzienny,
+    metaWydatkiBody:    renderMetaWydatki,
+    metaMiesiecznyBody: renderMetaMiesieczny,
+    metaAudytBody:      renderMetaAudyt,
+    metaAudytWartBody:  renderMetaAudytWart,
+    metaWartoscKonwersjiBody: renderMetaWartoscKonwersji,
+    metaAnomaliaBody:   renderMetaAnomalia,
+  };
+  if (tabRenderMap[bodyId]) tabRenderMap[bodyId]();
+}
+
+// ═══════════════════════════════════════════════════════
+//  ŁADOWANIE DANYCH
+// ═══════════════════════════════════════════════════════
+async function loadAllData() {
+  if (dataAbortController) {
+    dataAbortController.abort();
+  }
+  dataAbortController = new AbortController();
+  const signal = dataAbortController.signal;
+
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('loading');
+  document.getElementById('statusBody').innerHTML =
+    '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr>';
+  document.getElementById('metaOverviewBody').innerHTML =
+    '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr>';
+
+  try {
+    const sheetKeys = ['wydatki','audyt','audytWart','wyniki','wartKonw','anomalia','notatki'];
+    const metaKeys  = Object.keys(META_GIDS);
+    const configKeys = Object.keys(CONFIG_SHEET_NAMES); // ['progiGoogle', 'progiMeta']
+
+    const [sheetResults, metaResults, configResults] = await Promise.all([
+      Promise.allSettled(sheetKeys.map(key => fetchCsvByName(SHEET_ID, SHEET_NAMES[key], signal))),
+      META_SHEET_ID
+        ? Promise.allSettled(metaKeys.map(key => fetchCsv(META_GIDS[key], signal, META_SHEET_ID, key === 'metaMiesieczny')))
+        : Promise.resolve(metaKeys.map(() => ({status:'fulfilled', value: []}))),
+      CONFIG_SHEET_ID
+        ? Promise.allSettled(configKeys.map(key => fetchCsvByName(CONFIG_SHEET_ID, CONFIG_SHEET_NAMES[key], signal)))
+        : Promise.resolve(configKeys.map(() => ({status:'fulfilled', value: []}))),
+    ]);
+
+    if (signal.aborted) return;
+    const sheetErrors = [];
+    const loaded = {};
+    let metaMonthlyError = META_SHEET_ID ? '' : 'Nie skonfigurowano pliku Meta Ads.';
+
+    sheetResults.forEach((result, i) => {
+      const key = sheetKeys[i];
+      if (result.status === 'fulfilled') {
+        loaded[key] = result.value;
+        return;
+      }
+      if (result.reason && result.reason.name === 'AbortError') throw result.reason;
+      loaded[key] = [];
+      sheetErrors.push(`${key}: ${result.reason && result.reason.message ? result.reason.message : result.reason}`);
+    });
+
+    metaResults.forEach((result, i) => {
+      const key = metaKeys[i];
+      if (result.status === 'fulfilled') {
+        loaded[key] = result.value;
+        return;
+      }
+      if (result.reason && result.reason.name === 'AbortError') throw result.reason;
+      loaded[key] = [];
+      const message = result.reason && result.reason.message ? result.reason.message : String(result.reason);
+      sheetErrors.push(`${key}: ${message}`);
+      if (key === 'metaMiesieczny') metaMonthlyError = message;
+    });
+
+    configResults.forEach((result, i) => {
+      const key = configKeys[i];
+      if (result.status === 'fulfilled') {
+        loaded[key] = result.value;
+        return;
+      }
+      if (result.reason && result.reason.name === 'AbortError') throw result.reason;
+      loaded[key] = [];
+      sheetErrors.push(`${key}: ${result.reason && result.reason.message ? result.reason.message : result.reason}`);
+    });
+
+    const {wydatki,audyt,audytWart,wyniki,wartKonw,anomalia,notatki,metaWydatki,metaDzienny,metaMiesieczny,metaAudyt,metaAudytWart,metaAnomalia,metaWartoscKonwersji,metaKonta,progiGoogle,progiMeta} = loaded;
+    DATA = { wydatki, audyt, audytWart, wyniki, wartKonw, anomalia, notatki, metaWydatki, metaDzienny, metaMiesieczny, metaAudyt, metaAudytWart, metaAnomalia,  metaWartoscKonwersji, metaKonta, progiGoogle, progiMeta };
+
+    DATA._metaMonthlyError = metaMonthlyError;
+    DATA._metaIssues = metaMonthlyError ? [metaMonthlyError] : [];
+    DATA._metaIssues.push(...collectMetaDataIssues(DATA));
+
+    COMPARISON_WARNINGS.clear();
+    DATA._idx    = buildIndexes(DATA);
+    DATA._config = buildConfig(DATA.progiGoogle);
+    DATA._metaConfig = buildMetaConfig(DATA.progiMeta);
+    // Mapy nazwa konta -> ID konta, budowane z Wydatki (jedyna zakładka, która ZAWSZE ma
+    // kolumnę "ID Konta" dla każdego zsynchronizowanego konta) — używane przez
+    // getThresholds()/getMetaThresholds() do kluczowania progów po ID, nie po nazwie.
+    DATA._nameToId     = buildNameToIdMap(DATA.wydatki);
+    DATA._nameToIdMeta = buildNameToIdMap(DATA.metaWydatki);
+
+    NOTES = mapNotatkiRows(notatki);
+
+    updateReportDates();
+    const updateEl = document.getElementById('lastUpdate');
+    if (updateEl) updateEl.title = sheetErrors.join('\n');
+    renderMetaDataNotice();
+    if (sheetErrors.length) console.warn('[Dashboard] Nie wszystkie arkusze zostały pobrane:', sheetErrors);
+
+    GOOGLE_KONTA = [...new Set([
+      ...wydatki.map(r=>(r['Konto']||'').trim()),
+      ...audyt.map(r=>(r['Konto']||'').trim()),
+      ...wyniki.map(r=>(r['Konto']||'').trim()),
+      ...wartKonw.map(r=>(r['Konto']||'').trim()),
+      ...anomalia.map(r=>(r['Konto']||'').trim()),
+    ])].filter(Boolean).sort();
+    META_KONTA = [...new Set([
+      ...(metaWydatki||[]).map(r=>(r['Konto']||'').trim()),
+      ...(metaDzienny||[]).map(r=>(r['Konto']||'').trim()),
+      ...(metaMiesieczny||[]).map(r=>(r['Konto']||'').trim()),
+    ])].filter(Boolean).sort();
+    ALL_KONTA = [...new Set([...GOOGLE_KONTA, ...META_KONTA])].sort();
+    updateKontoDropdowns();
+
+    renderAll();
+    renderNotesList();
+  } catch(e) {
+    if (e.name === 'AbortError') return;
+    document.getElementById('lastUpdate').textContent='Błąd: '+e.message;
+    const errorRow = `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:24px">Błąd pobierania danych: ${escHtml(e.message)}<br><br>Upewnij się, że arkusz jest publiczny:<br><em>Udostępnij → Każdy z linkiem → Przeglądający</em></td></tr>`;
+    document.getElementById('statusBody').innerHTML = errorRow;
+    document.getElementById('metaOverviewBody').innerHTML = errorRow.replace('colspan="8"', 'colspan="10"');
+    console.error('[Dashboard]',e);
+  } finally {
+    // Starsze, anulowane pobranie nie może wyłączyć stanu nowego odświeżania.
+    if (dataAbortController && dataAbortController.signal === signal) {
+      btn.classList.remove('loading');
+      dataAbortController = null;
+    }
+  }
+}
+
+// Buduje mapę Nazwa konta -> ID konta z wierszy zakładki Wydatki (jedynej, która ma
+// gwarantowaną kolumnę "ID Konta" dla każdego zsynchronizowanego konta). Używana przez
+// getThresholds()/getMetaThresholds() do tłumaczenia nazwy (jak dotąd używanej wszędzie
+// w kodzie) na ID, po którym kluczowana jest konfiguracja progów w osobnym pliku.
+function buildNameToIdMap(rows) {
+  const map = {};
+  (rows || []).forEach(r => {
+    const name = (r['Konto'] || '').trim();
+    const id = (r['ID Konta'] || '').trim();
+    if (name && id) map[name] = id;
+  });
+  return map;
+}
+
+function buildIndexes(d) {
+  const duplicates = [];
+  const idx = arr => {
+    const map = {};
+    normalizeRows(arr || []).forEach(r => {
+      if (r.konto) {
+        if (map[r.konto]) duplicates.push(r.konto);
+        map[r.konto] = r;
+      }
+    });
+    return map;
+  };
+  const result = {
+    W:  idx(d.wydatki),
+    A:  idx(d.audyt),
+    Wn: idx(d.wyniki),
+    Wk: idx(d.wartKonw),
+    An: idx(d.anomalia),
+  };
+  if (duplicates.length) {
+    const unique = [...new Set(duplicates)];
+    console.warn('[Dashboard] Duplikaty kont w danych (last-write-wins):', unique);
+    const el = document.getElementById('lastUpdate');
+    if (el) {
+      const extra = 'Wykryto zduplikowane wiersze kont w arkuszu. Wyświetlany jest ostatni wiersz dla każdego konta: ' + unique.join(', ');
+      el.title = [el.title, extra].filter(Boolean).join('\n');
+    }
+  }
+  return result;
+}
+
+// Filtruje dropdown "Konto" w formularzu wg wybranej platformy — zapobiega
+// pomieszaniu kont Google Ads i Meta Ads o tej samej nazwie.
+function onPlatformaChange() {
+  const platforma = document.getElementById('notePlatforma').value;
+  const sel = document.getElementById('noteKonto');
+  const cur = sel.value;
+  if (!platforma) {
+    sel.innerHTML = '<option value="">— najpierw wybierz platformę —</option>';
+    sel.disabled = true;
+    return;
+  }
+  const list = platforma === 'Meta Ads' ? META_KONTA : GOOGLE_KONTA;
+  sel.disabled = false;
+  sel.innerHTML = '<option value="">— wybierz konto —</option>' +
+    list.map(k=>`<option value="${escHtml(k)}"${k===cur?' selected':''}>${escHtml(k)}</option>`).join('');
+}
+
+function updateKontoDropdowns() {
+  onPlatformaChange(); // odśwież listę kont w formularzu dla aktualnie wybranej platformy
+  const fsel = document.getElementById('dzFilterKonto');
+  const fcur = fsel.value;
+  fsel.innerHTML = '<option value="">Wszystkie konta</option>' +
+    ALL_KONTA.map(k=>`<option value="${escHtml(k)}"${k===fcur?' selected':''}>${escHtml(k)}</option>`).join('');
+}
+
+function applyFilters() {
+  const activeId = document.querySelector('.page.active')?.id?.replace('page-', '');
+  const pageRenderers = {
+    overview:        renderOverview,
+    wydatki:         renderWydatki,
+    audyt:           renderAudyt,
+    audytWart:       renderAudytWart,
+    wyniki:          renderWyniki,
+    wartKonw:        renderWartKonw,
+    anomalia:        renderAnomalia,
+    metaDzienny:     renderMetaDzienny,
+    metaWydatki:     renderMetaWydatki,
+    metaMiesieczny:  renderMetaMiesieczny,
+    metaAudyt:       renderMetaAudyt,
+    metaAudytWart:   renderMetaAudytWart,
+    metaWartoscKonwersji: renderMetaWartoscKonwersji,
+    metaAnomalia:    renderMetaAnomalia,
+    metaOverview:    renderMetaOverview,
+  };
+  if (activeId && activeId !== 'overview' && pageRenderers[activeId]) {
+    pageRenderers[activeId]();
+  }
+  renderOverview();
+  renderComparisonHelp();
+}
+
+function renderAll() {
+  renderOverview();
+  renderWydatki();
+  renderAudyt();
+  renderAudytWart();
+  renderWyniki();
+  renderWartKonw();
+  renderAnomalia();
+  renderMetaOverview();
+  renderMetaDzienny();
+  renderMetaWydatki();
+  renderMetaMiesieczny();
+  renderMetaAudyt();
+  renderMetaAudytWart();
+  renderMetaWartoscKonwersji();
+  renderMetaAnomalia();
+  renderComparisonHelp();
+}
+
+function metricText(value, cls) {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return '<span class="metric-empty">—</span>';
+  }
+  return `<span class="${cls || 'metric-gray'}">${escHtml(String(value))}</span>`;
+}
+
+// t: obiekt progów z getThresholds()/getMetaThresholds() — musi zawierać budzet_min/budzet_max.
+function budgetClass(value, t) {
+  t = t || DEFAULTS;
+  const n = parseNum(value);
+  if (!value || String(value).trim() === '') return 'metric-empty';
+  if (n > t.budzet_max) return 'metric-red';
+  if (n < t.budzet_min) return 'metric-amber';
+  return 'metric-gray';
+}
+
+function ratioClass(value, normalMin, greenMin) {
+  const n = parseNum(value);
+  if (!value || String(value).trim() === '') return 'metric-empty';
+  if (n >= greenMin) return 'metric-green';
+  if (n >= normalMin) return 'metric-gray';
+  if (n >= normalMin * 0.67) return 'metric-amber';
+  return 'metric-red';
+}
+
+// t: obiekt progów z getThresholds() — bez `t` spada na systemowe DEFAULTS.
+function roasClass(value, t) {
+  t = t || DEFAULTS;
+  const n = parseNum(value);
+  if (!value || String(value).trim() === '' || n <= 0) return 'metric-empty';
+  if (t.roas_amber > 0 && n >= t.roas_amber) return 'metric-green';
+  if (t.roas_red > 0 && n >= t.roas_red) return 'metric-gray';
+  if (t.roas_red > 0 && n >= t.roas_red * 0.75) return 'metric-amber';
+  return 'metric-red';
+}
+
+function renderOverview() {
+  const {W:iW, A:iA, Wn:iWn, Wk:iWk, An:iAn} = DATA._idx || buildIndexes(DATA);
+
+  const wydatki  = normalizeRows(DATA.wydatki || []);
+  const audyt    = normalizeRows(DATA.audyt || []);
+
+  // Zachowujemy kolejność kont znaną z zakładek Google Ads.
+  // Najpierw kolejność z „Wydatków” (główna tabela operacyjna), a konta występujące
+  // wyłącznie w innych raportach dopisujemy na końcu w kolejności źródłowej.
+  const googleAccountSources = [
+    DATA.wydatki || [],
+    DATA.audyt || [],
+    DATA.wyniki || [],
+    DATA.wartKonw || [],
+    DATA.anomalia || [],
+  ];
+  const seenGoogleAccounts = new Set();
+  const allKonta = [];
+  googleAccountSources.forEach(rows => {
+    (rows || []).forEach(r => {
+      const konto = String(r['Konto'] || '').trim();
+      if (konto && !seenGoogleAccounts.has(konto)) {
+        seenGoogleAccounts.add(konto);
+        allKonta.push(konto);
+      }
+    });
+  });
+  const {q} = getFilters();
+  const filtered = allKonta.filter(konto => !q || konto.toLowerCase().includes(q));
+
+  PAGE_COUNTS.overview = {shown: filtered.length, total: allKonta.length};
+  updateResultsCountDisplay();
+
+  const body = document.getElementById('statusBody');
+  if (!filtered.length) {
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Brak danych</td></tr>';
+    return;
+  }
+
+  body.innerHTML = filtered.map(konto => {
+    const w = iW[konto] || {};
+    const a = iA[konto] || {};
+    const wn = iWn[konto] || {};
+    const wk = iWk[konto] || {};
+    const an = iAn[konto] || {};
+    const t = getThresholds(konto);
+
+    const budget = w['Status'] || '';
+    const conversions = wn['Konwersje'] || '';
+    const conversionsClass = conversions !== '' && parseNum(conversions) < t.konw_min ? 'metric-red' : 'metric-gray';
+    const convVsPrev = wn['Porównanie konwersji z poprzednim miesiącem'] || '';
+    const impressionsTrend = a['Współczynnik wyświetleń'] ?? '';
+    const impressionsAnomaly = an['Status wyświetleń'] ?? '';
+    const roas = wk['ROAS'] || '';
+    // CPA — działa dla każdego konta (Sklep i Lead), w przeciwieństwie do ROAS, które ma
+    // sens tylko dla Sklepów (zakładka Wartość konwersji). Bez kolorowania na razie —
+    // nie ma jeszcze zdefiniowanego progu w Progi - Google Ads.
+    const cpa = wn['CPA'] || '';
+
+    return `<tr>
+      <td style="font-weight:700;font-family:'Montserrat',sans-serif">${highlightMatch(konto)}</td>
+      <td>${metricText(budget, budgetClass(budget, t))}</td>
+      <td>${metricText(conversions, conversionsClass)}</td>
+      <td>${metricText(convVsPrev, ratioClass(convVsPrev, t.konw_pct_min, 100))}</td>
+      <td>${formatComparisonMetric(impressionsTrend, 'trend', 'google', konto, a['ID Konta'] || w['ID Konta'], 'ratio')}</td>
+      <td>${formatComparisonMetric(impressionsAnomaly, 'anomaly', 'google', konto, an['ID Konta'] || w['ID Konta'])}</td>
+      <td>${metricText(roas, roasClass(roas, t))}</td>
+      <td>${metricText(cpa, 'metric-gray')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function openDziennikForKonto(konto, platforma) {
+  const btn = document.querySelector('.nav-item.nav-dziennik');
+  showPage('dziennik', btn);
+
+  const filterKontoSel = document.getElementById('dzFilterKonto');
+  if (filterKontoSel) filterKontoSel.value = konto;
+  const filterPlatformaSel = document.getElementById('dzFilterPlatforma');
+  if (filterPlatformaSel && platforma) filterPlatformaSel.value = platforma;
+  renderNotesList();
+
+  const formPlatformaSel = document.getElementById('notePlatforma');
+  if (formPlatformaSel && platforma) {
+    formPlatformaSel.value = platforma;
+    onPlatformaChange();
+  }
+  const formKontoSel = document.getElementById('noteKonto');
+  if (formKontoSel) formKontoSel.value = konto;
+}
+
+// ═══════════════════════════════════════════════════════
+//  POZOSTAŁE ZAKŁADKI
+// ═══════════════════════════════════════════════════════
+function renderWydatki()        { renderDynamicTable(DATA.wydatki        || [], 'wydatkiHead',        'wydatkiBody',    'google'); }
+function renderAudyt()          { renderDynamicTable(DATA.audyt          || [], 'audytHead',          'audytBody',      'google'); }
+function renderAudytWart()      { renderDynamicTable(DATA.audytWart      || [], 'audytWartHead',      'audytWartBody',  'google'); }
+function renderWyniki()         { renderDynamicTable(DATA.wyniki         || [], 'wynikiHead',         'wynikiBody',     'google'); }
+function renderAnomalia()       { renderDynamicTable(DATA.anomalia       || [], 'anomaliaHead',       'anomaliaBody',   'google'); }
+function renderWartKonw()       { renderDynamicTable(DATA.wartKonw       || [], 'wartKonwHead',       'wartKonwBody',   'google'); }
+// ═══════════════════════════════════════════════════════
+//  META ADS — PRZEGLĄD (jeden wiersz na ID konta + ID zestawu)
+// ═══════════════════════════════════════════════════════
+function pctChange(now, prev) {
+  if (!prev) return null;
+  return ((now - prev) / prev) * 100;
+}
+
+function indexMetaWydatki() {
+  const idx = Object.create(null);
+  (DATA.metaWydatki || []).forEach(r => {
+    const key = normalizeMetaAccountId(r['ID Konta']);
+    if (key && !idx[key]) idx[key] = r;
+  });
+  return idx;
+}
+
+function normalizeMetaAccountId(value) {
+  // Nie zamieniamy ID na Number: długie identyfikatory muszą pozostać tekstem.
+  return String(value ?? '').trim().replace(/^act_/i, '');
+}
+
+function metaRowKey(row) {
+  const accountId = normalizeMetaAccountId(row && row['ID Konta']);
+  const adsetId = String((row && row['ID Zestawu']) ?? '').trim();
+  return accountId && adsetId ? JSON.stringify([accountId, adsetId]) : '';
+}
+
+function indexMetaByAdset(rows) {
+  const idx = Object.create(null);
+  (rows || []).forEach(r => {
+    const key = metaRowKey(r);
+    if (key && !idx[key]) idx[key] = r;
+  });
+  return idx;
+}
+
+function collectMetaDataIssues(data) {
+  const issues = [];
+  for (const key of ['metaMiesieczny','metaDzienny','metaAudyt','metaAnomalia']) {
+    const rows = data[key] || [];
+    const seen = new Set();
+    let missing = 0, duplicates = 0;
+    rows.forEach(row => {
+      const id = metaRowKey(row);
+      if (!id) { missing++; return; }
+      if (seen.has(id)) duplicates++;
+      seen.add(id);
+    });
+    if (missing) issues.push(`${key}: ${missing} wierszy bez ID konta lub zestawu. Nie są łączone w Przeglądzie; pozostają widoczne w tabeli szczegółowej.`);
+    if (duplicates) issues.push(`${key}: ${duplicates} powtórzonych kluczy ID. Przegląd korzysta z pierwszego wiersza dla danego ID.`);
+  }
+  const monthly = data.metaMiesieczny || [];
+  const invalid = monthly.filter(r => {
+    const v = r[META_MONTHLY_FIELDS.change];
+    return v !== undefined && v !== null && String(v).trim() !== '' && parseMetaForecastChange(v) === null;
+  }).length;
+  if (invalid) issues.push(`Raport miesięczny: ${invalid} nieprawidłowych wartości zmiany prognozy. Zamiast nich pokazano kreskę.`);
+  const dates = getMetaReportTimestamps(monthly);
+  if (dates.length > 1) issues.push('Raport miesięczny zawiera różne czasy aktualizacji. Sprawdź, czy odświeżanie GAS zakończyło się dla całego raportu.');
+  return issues;
+}
+
+function getMetaReportTimestamps(rows) {
+  const values = [];
+  (rows || []).forEach(row => {
+    const raw = row && (row['Data i godzina aktualizacji'] ?? row['Data']);
+    const value = String(raw ?? '').trim();
+    if (value) values.push(value);
+  });
+  return [...new Set(values)];
+}
+
+function parseReportDate(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return null;
+
+  // Format GAS / Sheets: YYYY-MM-DD HH:mm:ss (sekundy są opcjonalne).
+  let m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(text);
+  if (m) {
+    const hh = m[4] !== undefined ? String(m[4]).padStart(2, '0') : '';
+    const mm = m[5] !== undefined ? m[5] : '';
+    const ss = m[6] !== undefined ? m[6] : '00';
+    const hasTime = hh !== '' && mm !== '';
+    return {
+      key: m[1] + '-' + m[2] + '-' + m[3] + ' ' + (hasTime ? hh + ':' + mm + ':' + ss : '00:00:00'),
+      label: m[3] + '.' + m[2] + '.' + m[1] + (hasTime ? ', ' + hh + ':' + mm : '')
+    };
+  }
+
+  // Format lokalny: DD.MM.YYYY HH:mm[:ss] (akceptujemy też / i - jako separator daty).
+  m = /^(\d{2})[.\/-](\d{2})[.\/-](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(text);
+  if (m) {
+    const hh = m[4] !== undefined ? String(m[4]).padStart(2, '0') : '';
+    const mm = m[5] !== undefined ? m[5] : '';
+    const ss = m[6] !== undefined ? m[6] : '00';
+    const hasTime = hh !== '' && mm !== '';
+    return {
+      key: m[3] + '-' + m[2] + '-' + m[1] + ' ' + (hasTime ? hh + ':' + mm + ':' + ss : '00:00:00'),
+      label: m[1] + '.' + m[2] + '.' + m[3] + (hasTime ? ', ' + hh + ':' + mm : '')
+    };
+  }
+  return null;
+}
+
+function getLatestReportDate(rowGroups) {
+  const candidates = [];
+  (rowGroups || []).forEach(rows => (rows || []).forEach(row => {
+    ['Data i godzina aktualizacji', 'Data'].forEach(header => {
+      const parsed = parseReportDate(row && row[header]);
+      if (parsed) candidates.push(parsed);
+    });
+  }));
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => a.key.localeCompare(b.key));
+  return candidates[candidates.length - 1];
+}
+
+function updateReportDates() {
+  const googleEl = document.getElementById('lastUpdate');
+  const metaEl = document.getElementById('metaReportUpdate');
+  const googleDate = getLatestReportDate([
+    DATA.wydatki, DATA.audyt, DATA.audytWart, DATA.wyniki, DATA.wartKonw, DATA.anomalia
+  ]);
+  const metaDate = getLatestReportDate([
+    DATA.metaWydatki, DATA.metaDzienny, DATA.metaMiesieczny, DATA.metaAudyt,
+    DATA.metaAudytWart, DATA.metaWartoscKonwersji, DATA.metaAnomalia
+  ]);
+
+  if (googleEl) {
+    googleEl.textContent = 'Google Ads: ' + (googleDate ? googleDate.label : 'brak daty');
+    googleEl.title = 'Data i godzina aktualizacji odczytane z danych źródłowych Google Ads.';
+  }
+  if (metaEl) {
+    if (DATA._metaMonthlyError) metaEl.textContent = 'Meta Ads: raport niedostępny';
+    else metaEl.textContent = 'Meta Ads: ' + (metaDate ? metaDate.label : 'brak daty');
+    metaEl.title = 'Data i godzina aktualizacji odczytane z danych źródłowych Meta Ads.';
+  }
+}
+
+function renderMetaDataNotice() {
+  const el = document.getElementById('metaDataNotice');
+  if (!el) return;
+  const active = document.querySelector('.page.active');
+  const issues = DATA._metaIssues || [];
+  el.hidden = !active || !active.id.startsWith('page-meta') || !issues.length;
+  el.innerHTML = issues.map(message => '<div>' + escHtml(message) + '</div>').join('');
+}
+
+function renderMetaMonthlyError(bodyId, colspan) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  body.innerHTML = `<tr><td colspan="${colspan}" class="table-message">Nie można wyświetlić raportu miesięcznego. Szczegóły znajdują się w komunikacie nad tabelą.</td></tr>`;
+  PAGE_COUNTS[bodyId.replace(/Body$/, '')] = {shown: 0, total: 0};
+  updateResultsCountDisplay();
+}
+
+function renderMetaOverview() {
+  const bodyEl = document.getElementById('metaOverviewBody');
+  if (!bodyEl) return;
+
+  if (DATA._metaMonthlyError) { renderMetaMonthlyError('metaOverviewBody', 10); return; }
+  const miesieczny = DATA.metaMiesieczny || [];
+  const dzIdx = indexMetaByAdset(DATA.metaDzienny || []);
+  const auIdx = indexMetaByAdset(DATA.metaAudyt || []);
+  const anIdx = indexMetaByAdset(DATA.metaAnomalia || []);
+  const wIdx = indexMetaWydatki();
+  const {q} = getFilters();
+
+  // Jeden wiersz na zestaw reklam. Konta układamy według kolejności z arkusza „Konta”,
+  // a zestawy reklam wewnątrz konta zachowują kolejność z raportu „Miesięczny”.
+  const accountOrder = new Map();
+  const accountOrderById = new Map();
+  (DATA.metaKonta || []).forEach((r, index) => {
+    const konto = String(r['Konto'] || r['Nazwa konta'] || r['Nazwa Konta'] || '').trim();
+    if (konto && !accountOrder.has(konto)) accountOrder.set(konto, index);
+    const id = normalizeMetaAccountId(r['ID Konta']);
+    if (id && !accountOrderById.has(id)) accountOrderById.set(id, index);
+  });
+
+  const seen = new Set();
+  const allRows = miesieczny
+    .map((r, sourceIndex) => ({ r, sourceIndex }))
+    .filter(({r}) => {
+      const key = metaRowKey(r);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => {
+      const kontoA = (a.r['Konto'] || '').trim();
+      const kontoB = (b.r['Konto'] || '').trim();
+      const idA = normalizeMetaAccountId(a.r['ID Konta']);
+      const idB = normalizeMetaAccountId(b.r['ID Konta']);
+      const orderA = accountOrderById.get(idA) ?? accountOrder.get(kontoA) ?? Number.MAX_SAFE_INTEGER;
+      const orderB = accountOrderById.get(idB) ?? accountOrder.get(kontoB) ?? Number.MAX_SAFE_INTEGER;
+      return orderA - orderB || a.sourceIndex - b.sourceIndex;
+    })
+    .map(({r}) => r);
+
+  const rows = allRows.filter(r => {
+    if (!q) return true;
+    const konto = (r['Konto'] || '').trim().toLowerCase();
+    const adset = (r['Nazwa zestawu reklam'] || '').trim().toLowerCase();
+    return konto.includes(q) || adset.includes(q);
+  });
+
+  PAGE_COUNTS.metaOverview = {shown: rows.length, total: allRows.length};
+  updateResultsCountDisplay();
+
+  if (!rows.length) {
+    bodyEl.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">Brak danych</td></tr>';
+    return;
+  }
+
+  bodyEl.innerHTML = rows.map(m => {
+    const konto = (m['Konto'] || '').trim();
+    const adset = (m['Nazwa zestawu reklam'] || '').trim();
+    const key = metaRowKey(m);
+    const d = dzIdx[key] || {};
+    const a = auIdx[key] || {};
+    const an = anIdx[key] || {};
+    const accountId = m['ID Konta'];
+    const w = wIdx[normalizeMetaAccountId(accountId)] || {};
+    const t = getMetaThresholds(konto, accountId);
+
+    const budget = w['Status'] || '';
+    const costToday = d['Koszt dziś'] || '';
+    const impressionsToday = d['Wyświetlenia dziś'] || '';
+    const costYesterday = an['Koszt (wczoraj)'] || '';
+    const dayChange = comparisonCellValue('Status wyświetleń', an, 'meta');
+    // Wszystkie wyniki miesięczne pochodzą z tego samego wiersza Raport_Miesieczny.
+    // Nie odczytujemy starej zakładki Wyniki i nie liczymy prognozy ponownie.
+    const monthlyResult = m[META_MONTHLY_FIELDS.result] ?? '';
+    const forecastChange = m[META_MONTHLY_FIELDS.change] ?? '';
+    const trend30d = comparisonCellValue('Zmiana % Wyświetleń (30 dni vs 90 dni→30d)', a, 'meta');
+
+    return `<tr>
+      <td style="font-weight:700;font-family:'Montserrat',sans-serif">${highlightMatch(konto)}</td>
+      <td>${adset ? highlightMatch(adset) : '<span class="metric-empty">—</span>'}</td>
+      <td>${metricText(budget, budgetClass(budget, t))}</td>
+      <td class="mono"><span class="metric-gray">${costToday !== '' ? escHtml(String(costToday)) : '—'}</span></td>
+      <td class="mono"><span class="metric-gray">${impressionsToday !== '' ? escHtml(String(impressionsToday)) : '—'}</span></td>
+      <td class="mono"><span class="metric-gray">${costYesterday !== '' ? escHtml(String(costYesterday)) : '—'}</span></td>
+      <td>${formatComparisonMetric(dayChange, 'anomaly', 'meta', konto, accountId)}</td>
+      <td class="mono"><span class="metric-gray">${monthlyResult !== '' ? escHtml(String(monthlyResult)) : '—'}</span></td>
+      <td>${formatMetaForecastChange(forecastChange, konto, accountId)}</td>
+      <td>${formatComparisonMetric(trend30d, 'trend', 'meta', konto, accountId)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderMetaDzienny()    { renderDynamicTable(DATA.metaDzienny    || [], 'metaDziennyHead',    'metaDziennyBody',    'meta'); }
+function renderMetaWydatki()    { renderDynamicTable(DATA.metaWydatki    || [], 'metaWydatkiHead',    'metaWydatkiBody',    'meta'); }
+function renderMetaMiesieczny() {
+  if (DATA._metaMonthlyError) {
+    document.getElementById('metaMiesiecznyHead').innerHTML = '';
+    renderMetaMonthlyError('metaMiesiecznyBody', 13);
+    return;
+  }
+  renderDynamicTable(DATA.metaMiesieczny || [], 'metaMiesiecznyHead', 'metaMiesiecznyBody', 'meta');
+}
+function renderMetaAudyt()      { renderDynamicTable(DATA.metaAudyt      || [], 'metaAudytHead',      'metaAudytBody',      'meta'); }
+function renderMetaAudytWart()  { renderDynamicTable(DATA.metaAudytWart  || [], 'metaAudytWartHead',  'metaAudytWartBody',  'meta'); }
+function renderMetaWartoscKonwersji() { renderDynamicTable(DATA.metaWartoscKonwersji || [], 'metaWartoscKonwersjiHead', 'metaWartoscKonwersjiBody', 'meta'); }
+function renderMetaAnomalia()   { renderDynamicTable(DATA.metaAnomalia   || [], 'metaAnomaliaHead',   'metaAnomaliaBody',   'meta'); }
+
+// ═══════════════════════════════════════════════════════
+
+//  UI HELPERS
+// ═══════════════════════════════════════════════════════
+function showFeedback(msg, cls) {
+  const el = document.getElementById('formFeedback');
+  el.textContent = msg;
+  el.className = 'form-feedback ' + cls;
+  setTimeout(()=>{ el.textContent=''; el.className='form-feedback'; }, 3500);
+}
+let toastTimer;
+function showToast(msg, cls='ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast show ${cls}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 3000);
+}
+function showWebappHelp() {
+  showToast('Otwórz plik apps_script.gs i postępuj zgodnie z instrukcją.','ok');
+}
+
+// ═══════════════════════════════════════════════════════
+//  NAWIGACJA
+// ═══════════════════════════════════════════════════════
+const PAGE_TITLES={
+  overview:'Przegląd',wydatki:'Wydatki',audyt:'Audyt',audytWart:'Audyt - wart',
+  wyniki:'Wyniki',wartKonw:'Wartość konwersji',anomalia:'Anomalia',
+  metaOverview:'Meta — Przegląd',metaWydatki:'Meta — Wydatki',metaDzienny:'Meta — Dzienny',metaMiesieczny:'Meta — Wyniki',metaWartoscKonwersji:'Meta — Wartość konwersji',metaAudyt:'Meta — Audyt',metaAudytWart:'Meta — Audyt - wart',metaAnomalia:'Meta — Anomalia',
+  dziennik:'Dziennik zmian'
+};
+
+function canonicalPageName(name) {
+  const target = name === 'metaWyniki' ? 'metaMiesieczny' : name;
+  return Object.prototype.hasOwnProperty.call(PAGE_TITLES, target) && document.getElementById('page-' + target)
+    ? target : 'overview';
+}
+
+function applyPageUI(name, btn) {
+  const canonical = canonicalPageName(name);
+  btn = canonical === name ? (btn || navButtonForPage(canonical)) : navButtonForPage(canonical);
+  name = canonical;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const el=document.getElementById('page-'+name);
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('pageTitle').textContent=PAGE_TITLES[name]||name;
+
+  const badge = document.getElementById('platformBadge');
+  if (badge) {
+    if (name.startsWith('meta')) { badge.textContent='Meta Ads'; badge.className='platform-badge meta'; }
+    else if (name==='dziennik')  { badge.textContent='';         badge.className='platform-badge'; }
+    else                          { badge.textContent='Google Ads'; badge.className='platform-badge google'; }
+  }
+
+  const hf = document.getElementById('headerFilters');
+  hf.style.display = name==='dziennik' ? 'none' : 'flex';
+  const search = document.getElementById('searchInput');
+  const searchLabel = name.startsWith('meta') ? 'Szukaj konta lub zestawu…' : 'Szukaj konta…';
+  search.placeholder = searchLabel;
+  search.setAttribute('aria-label', searchLabel);
+
+  if (name==='dziennik') {
+    document.getElementById('webappBanner').style.display = WEBAPP_URL ? 'none' : 'flex';
+  }
+  renderMetaDataNotice();
+  renderComparisonHelp();
+  if (name !== 'dziennik') applyFilters();
+  updateResultsCountDisplay();
+}
+
+// Zmienia zakładkę i zapisuje ją w URL (#nazwa-zakładki), żeby dało się ją
+// zapisać w zakładkach przeglądarki, wysłać w linku lub wrócić do niej po odświeżeniu.
+function showPage(name,btn) {
+  const canonical = canonicalPageName(name);
+  if (canonical !== name) btn = navButtonForPage(canonical);
+  name = canonical;
+  applyPageUI(name, btn);
+  if (window.location.hash.slice(1) !== name) {
+    history.pushState({page: name}, '', '#' + name);
+  }
+}
+
+function navButtonForPage(name) {
+  name = canonicalPageName(name);
+  return document.querySelector(`.nav-item[onclick*="'${name}'"]`);
+}
+
+
+function restorePageFromLocation() {
+  const raw = (window.location.hash || '').slice(1);
+  const name = canonicalPageName(raw);
+  applyPageUI(name, navButtonForPage(name));
+  if (raw !== name || !history.state || history.state.page !== name) {
+    history.replaceState({page: name}, '', '#' + name);
+  }
+}
+
+window.addEventListener('popstate', restorePageFromLocation);
+window.addEventListener('hashchange', restorePageFromLocation);
+
+// ═══════════════════════════════════════════════════════
+//  DEBOUNCED HANDLERS
+// ═══════════════════════════════════════════════════════
+const _applyFiltersDebounced    = debounce(applyFilters,    180);
+const _renderNotesListDebounced = debounce(renderNotesList, 180);
+
+document.addEventListener('DOMContentLoaded', () => {
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', _applyFiltersDebounced);
+  }
+  const dzSearch = document.getElementById('dzSearch');
+  if (dzSearch) {
+    dzSearch.addEventListener('input', _renderNotesListDebounced);
+  }
+
+
+  // Stary adres #metaWyniki także otworzy scalony raport miesięczny.
+  restorePageFromLocation();
+});
+
+// Skrót „/” — fokus na wyszukiwarce aktywnej strony. Esc — czyści wyszukiwarkę.
+document.addEventListener('keydown', (e) => {
+  const targetTag = (e.target && e.target.tagName || '').toLowerCase();
+  const isEditable = targetTag === 'input' || targetTag === 'textarea' || targetTag === 'select' || (e.target && e.target.isContentEditable);
+
+  if (e.key === '/' && !isEditable) {
+    e.preventDefault();
+    const activeEl = document.querySelector('.page.active');
+    const pageId = activeEl ? activeEl.id.replace('page-', '') : '';
+    const input = document.getElementById(pageId === 'dziennik' ? 'dzSearch' : 'searchInput');
+    if (input) input.focus();
+    return;
+  }
+
+  if (e.key === 'Escape' && isEditable) {
+    const id = e.target.id;
+    if ((id === 'searchInput' || id === 'dzSearch') && e.target.value) {
+      e.target.value = '';
+      e.target.dispatchEvent(new Event('input'));
+    }
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+//  INIT — dane ładujemy dopiero po poprawnym logowaniu Workspace
+// ═══════════════════════════════════════════════════════
+if (typeof waitForAuth === 'function') {
+  waitForAuth().then(session => {
+    if (session && session.authenticated) loadAllData();
+  });
+} else {
+  console.error('[Auth] auth.js nie został załadowany — pobieranie danych zablokowane.');
+}
