@@ -800,7 +800,9 @@ async function loadAllData() {
     DATA._metaIssues = metaMonthlyError ? [metaMonthlyError] : [];
     DATA._metaIssues.push(...collectMetaDataIssues(DATA));
 
-    COMPARISON_WARNINGS.clear();
+    if (typeof COMPARISON_WARNINGS !== 'undefined' && COMPARISON_WARNINGS && typeof COMPARISON_WARNINGS.clear === 'function') {
+      COMPARISON_WARNINGS.clear();
+    }
     DATA._idx = buildIndexes(DATA);
     DATA._config = buildConfig(DATA.progiGoogle);
     DATA._metaConfig = buildMetaConfig(DATA.progiMeta);
