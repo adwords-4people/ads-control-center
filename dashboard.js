@@ -689,6 +689,10 @@ function handleSortClick(th) {
 // ═══════════════════════════════════════════════════════
 //  ŁADOWANIE DANYCH
 // ═══════════════════════════════════════════════════════
+function dashboardEscapeHtml(value) {
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 async function loadAllData() {
   // Controller trzymamy na window, aby dashboard.js nie zależał od deklaracji
   // globalnej w data.js. To zapobiega zatrzymaniu aplikacji na "Ładowanie danych…"
@@ -700,13 +704,21 @@ async function loadAllData() {
   const signal = controller.signal;
 
   const btn = document.getElementById('refreshBtn');
-  btn.classList.add('loading');
-  document.getElementById('statusBody').innerHTML =
-    '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr>';
-  document.getElementById('metaOverviewBody').innerHTML =
-    '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr>';
+  const statusBody = document.getElementById('statusBody');
+  const metaOverviewBody = document.getElementById('metaOverviewBody');
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, 30000);
 
   try {
+    if (btn) btn.classList.add('loading');
+    if (statusBody) statusBody.innerHTML =
+      '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr>';
+    if (metaOverviewBody) metaOverviewBody.innerHTML =
+      '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr>';
+
     // Auth v3.1: jeden request do backendu zamiast 17 osobnych wywołań /api/data.
     // Dzięki temu sesja, OIDC/WIF, zakres użytkownika i token Sheets API są liczone raz,
     // a wszystkie raporty pobierane są w jednym kontrolowanym przebiegu.
@@ -719,7 +731,8 @@ async function loadAllData() {
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(payload.error || `HTTP ${response.status} dla /api/dashboard-data`);
+      const stage = payload.stage ? ` [${payload.stage}]` : '';
+      throw new Error((payload.error || `HTTP ${response.status} dla /api/dashboard-data`) + stage);
     }
     if (signal.aborted) return;
 
@@ -823,15 +836,21 @@ async function loadAllData() {
     renderNotesList();
     document.dispatchEvent(new CustomEvent('ppc:data-loaded'));
   } catch (e) {
-    if (e.name === 'AbortError') return;
-    document.getElementById('lastUpdate').textContent = 'Błąd: ' + e.message;
-    const errorRow = `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:24px">Błąd pobierania danych: ${escHtml(e.message)}<br><br>Sprawdź aktywną sesję oraz endpoint /api/dashboard-data. Szczegóły są też w /api/admin/sheets-check.</td></tr>`;
-    document.getElementById('statusBody').innerHTML = errorRow;
-    document.getElementById('metaOverviewBody').innerHTML = errorRow.replace('colspan="8"', 'colspan="10"');
+    const silentAbort = e && e.name === 'AbortError' && !timedOut;
+    if (silentAbort) return;
+    const message = timedOut
+      ? 'Przekroczono 30 s oczekiwania na /api/dashboard-data.'
+      : (e && e.message ? e.message : String(e));
+    const lastUpdate = document.getElementById('lastUpdate');
+    if (lastUpdate) lastUpdate.textContent = 'Błąd: ' + message;
+    const errorRow = `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:24px">Błąd pobierania danych: ${dashboardEscapeHtml(message)}<br><br>Endpoint: /api/dashboard-data</td></tr>`;
+    if (statusBody) statusBody.innerHTML = errorRow;
+    if (metaOverviewBody) metaOverviewBody.innerHTML = errorRow.replace('colspan="8"', 'colspan="10"');
     console.error('[Dashboard]', e);
   } finally {
+    clearTimeout(timeoutId);
     if (window.__PPC_DATA_ABORT_CONTROLLER__ === controller) {
-      btn.classList.remove('loading');
+      if (btn) btn.classList.remove('loading');
       window.__PPC_DATA_ABORT_CONTROLLER__ = null;
     }
   }
