@@ -127,6 +127,10 @@
     </div>
     <div class="header-filters" id="headerFilters">
       <span class="results-count" id="resultsCount"></span>
+      <button class="specialist-add-account-top" data-specialist-only hidden type="button" onclick="openAccountModal()" title="Dodaj konto reklamowe do swojego dashboardu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Dodaj konto
+      </button>
       <input class="search-input" id="searchInput" placeholder="Szukaj konta…" aria-label="Szukaj konta">
     </div>
   </div>
@@ -241,7 +245,7 @@
           <select id="adminClientPlatform" class="admin-filter" onchange="renderAdminClients()"><option value="">Wszystkie platformy</option><option value="Google Ads">Google Ads</option><option value="Meta Ads">Meta Ads</option></select>
         </div>
         <div class="table-wrap">
-          <table class="admin-table"><thead><tr><th>Klient / konto</th><th>Platforma</th><th>Opiekun</th><th>Typ</th><th>Budżet</th></tr></thead><tbody id="adminClientsBody"><tr><td colspan="5" class="admin-loading">Ładowanie…</td></tr></tbody></table>
+          <table class="admin-table"><thead><tr><th>Klient / konto</th><th>Platforma</th><th>Opiekun</th><th>Typ</th><th>Budżet</th><th>Akcje</th></tr></thead><tbody id="adminClientsBody"><tr><td colspan="6" class="admin-loading">Ładowanie…</td></tr></tbody></table>
         </div>
       </div>
     </div>
@@ -329,6 +333,21 @@
 
   </div>
 </div>
+</div>
+
+<div class="admin-modal-overlay" id="accountAssignModal" hidden>
+  <div class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="accountAssignTitle">
+    <div class="admin-modal-head"><div><h2 id="accountAssignTitle">Przypisz konto</h2><p id="assignmentAccountTitle">Konto reklamowe</p></div><button type="button" class="admin-modal-close" onclick="closeAccountAssignment()" aria-label="Zamknij">×</button></div>
+    <form id="accountAssignForm" onsubmit="saveAccountAssignment(event)">
+      <div class="admin-form-grid">
+        <label class="account-form-full"><span>Nowy opiekun</span><select id="assignmentUser" required onchange="updateAssignmentMckOptions()"></select></label>
+        <label class="account-form-full" id="assignmentMckWrap"><span>MCK nowego opiekuna</span><select id="assignmentMck"></select></label>
+      </div>
+      <div class="account-modal-note" id="assignmentModalNote">Wybierz pracownika, do którego konto ma zostać przypisane.</div>
+      <div class="admin-modal-feedback" id="assignmentModalFeedback"></div>
+      <div class="admin-modal-actions"><button type="button" class="admin-secondary-btn" onclick="closeAccountAssignment()">Anuluj</button><button type="submit" class="admin-primary-btn" id="assignmentSaveBtn">Przypisz konto</button></div>
+    </form>
+  </div>
 </div>
 
 <div class="admin-modal-overlay" id="employeeModal" hidden>

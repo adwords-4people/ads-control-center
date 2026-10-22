@@ -949,3 +949,15 @@ body.is-resizing-column *{cursor:col-resize !important;user-select:none !importa
 .account-modal-note{margin-top:12px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);font-size:11px;line-height:1.5;color:var(--muted)}
 .nav-add-account{color:var(--navy)}
 @media(max-width:760px){.account-form-full{grid-column:auto}}
+
+
+/* Admin v1.4 — widoczny skrót self-service Specjalisty w topbarze */
+.specialist-add-account-top{
+  height:36px;display:inline-flex;align-items:center;gap:7px;padding:0 12px;
+  border:1px solid var(--brand-line,#d7d7d2);border-radius:8px;background:#fff;
+  color:var(--navy,#17324d);font:600 12px 'Open Sans',sans-serif;cursor:pointer;white-space:nowrap;
+}
+.specialist-add-account-top:hover{background:var(--bg2,#f7f7f5);border-color:var(--navy,#17324d)}
+.specialist-add-account-top svg{width:15px;height:15px;flex:0 0 15px}
+.specialist-add-account-top[hidden]{display:none!important}
+@media(max-width:980px){.specialist-add-account-top{padding:0 9px;font-size:0}.specialist-add-account-top svg{width:17px;height:17px}}
