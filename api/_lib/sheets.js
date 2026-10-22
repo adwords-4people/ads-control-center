@@ -1,5 +1,3 @@
-const crypto = require('crypto');
-
 const DEFAULT_CONFIG_SHEET_ID = '1fy9NxgD9G52lRRie4Br9L-Y_VRVseZ4ksFmH32t5v8M';
 const DEFAULT_GOOGLE_DATA_SHEET_ID = '1_CMt0tZhGqT3y6wp5tTpetU7GtNtt2bKkzERg2iLNhw';
 const DEFAULT_META_DATA_SHEET_ID = '1_GCw4RqECUNeKisRNXSpb0ekcz1IQNxgb180ymexLOU';
@@ -10,103 +8,111 @@ const IDS = Object.freeze({
   meta: process.env.META_DATA_SHEET_ID || DEFAULT_META_DATA_SHEET_ID,
 });
 
-const TOKEN_URL = 'https://oauth2.googleapis.com/token';
-const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+const STS_URL = 'https://sts.googleapis.com/v1/token';
+const IAM_CREDENTIALS_API = 'https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts';
 const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets';
-const TOKEN_SAFETY_MS = 60 * 1000;
+const CLOUD_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
+const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+const TOKEN_SAFETY_MS = 2 * 60 * 1000;
 const METADATA_CACHE_MS = 5 * 60 * 1000;
 
 let tokenCache = { token: '', expiresAt: 0, pending: null };
 const metadataCache = new Map();
 
-function base64Url(input) {
-  const buffer = Buffer.isBuffer(input) ? input : Buffer.from(String(input));
-  return buffer.toString('base64')
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
+function requireEnv(name) {
+  const value = String(process.env[name] || '').trim();
+  if (!value) throw new Error(`Brak ${name} w Environment Variables.`);
+  return value;
 }
 
-function getCredentials() {
-  let email = String(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '').trim();
-  let privateKey = String(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '');
+function getOidcConfig() {
+  return {
+    projectId: requireEnv('GCP_PROJECT_ID'),
+    projectNumber: requireEnv('GCP_PROJECT_NUMBER'),
+    serviceAccountEmail: requireEnv('GCP_SERVICE_ACCOUNT_EMAIL'),
+    poolId: requireEnv('GCP_WORKLOAD_IDENTITY_POOL_ID'),
+    providerId: requireEnv('GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID'),
+  };
+}
 
-  // Opcjonalny wariant awaryjny: caly JSON konta serwisowego w jednym sekrecie.
-  // Nie jest wymagany, jesli ustawione sa dwa pola powyzej.
-  const json = String(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '').trim();
-  if ((!email || !privateKey) && json) {
-    let parsed;
-    try {
-      parsed = JSON.parse(json);
-    } catch (error) {
-      throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON nie jest poprawnym JSON-em.');
-    }
-    email = email || String(parsed.client_email || '').trim();
-    privateKey = privateKey || String(parsed.private_key || '');
+function getRequestHeader(req, name) {
+  if (!req || !req.headers) return '';
+  if (typeof req.headers.get === 'function') return String(req.headers.get(name) || '').trim();
+  const lower = name.toLowerCase();
+  const raw = req.headers[lower] ?? req.headers[name] ?? '';
+  return Array.isArray(raw) ? String(raw[0] || '').trim() : String(raw || '').trim();
+}
+
+function getVercelOidcToken(req) {
+  const token = getRequestHeader(req, 'x-vercel-oidc-token') || String(process.env.VERCEL_OIDC_TOKEN || '').trim();
+  if (!token) {
+    throw new Error('Brak tokenu Vercel OIDC. Sprawdz Settings -> Security -> OIDC Federation i wykonaj nowy deployment.');
   }
-
-  privateKey = privateKey.replace(/\\n/g, '\n').trim();
-
-  if (!email) throw new Error('Brak GOOGLE_SERVICE_ACCOUNT_EMAIL w Environment Variables.');
-  if (!privateKey) throw new Error('Brak GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY w Environment Variables.');
-  if (!privateKey.includes('BEGIN PRIVATE KEY')) {
-    throw new Error('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY nie wyglada jak klucz PEM konta serwisowego.');
-  }
-
-  return { email, privateKey };
+  return token;
 }
 
-function makeJwt(email, privateKey) {
-  const now = Math.floor(Date.now() / 1000);
-  const header = base64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const claims = base64Url(JSON.stringify({
-    iss: email,
-    scope: SHEETS_SCOPE,
-    aud: TOKEN_URL,
-    iat: now,
-    exp: now + 3600,
-  }));
-  const unsigned = `${header}.${claims}`;
-  const signature = crypto.sign('RSA-SHA256', Buffer.from(unsigned), privateKey);
-  return `${unsigned}.${base64Url(signature)}`;
-}
+async function exchangeVercelToken(req) {
+  const cfg = getOidcConfig();
+  const subjectToken = getVercelOidcToken(req);
+  const audience = `//iam.googleapis.com/projects/${cfg.projectNumber}/locations/global/workloadIdentityPools/${cfg.poolId}/providers/${cfg.providerId}`;
 
-async function requestAccessToken() {
-  const { email, privateKey } = getCredentials();
-  const assertion = makeJwt(email, privateKey);
-  const body = new URLSearchParams({
-    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-    assertion,
-  });
-
-  const response = await fetch(TOKEN_URL, {
+  const response = await fetch(STS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+      audience,
+      requested_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+      scope: CLOUD_SCOPE,
+      subject_token_type: 'urn:ietf:params:oauth:token-type:jwt',
+      subject_token: subjectToken,
+    }),
     cache: 'no-store',
   });
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || !payload.access_token) {
     const details = payload.error_description || payload.error || `HTTP ${response.status}`;
-    throw new Error(`Nie udalo sie pobrac tokenu Google Service Account: ${details}`);
+    throw new Error(`Google STS odrzucil token Vercel OIDC: ${details}`);
+  }
+  return payload.access_token;
+}
+
+async function impersonateServiceAccount(req) {
+  const cfg = getOidcConfig();
+  const federatedToken = await exchangeVercelToken(req);
+  const url = `${IAM_CREDENTIALS_API}/${encodeURIComponent(cfg.serviceAccountEmail)}:generateAccessToken`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${federatedToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ scope: [SHEETS_SCOPE], lifetime: '3600s' }),
+    cache: 'no-store',
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.accessToken) {
+    const details = payload && payload.error && payload.error.message
+      ? payload.error.message
+      : `HTTP ${response.status}`;
+    throw new Error(`Nie udalo sie przejac tozsamosci konta uslugi: ${details}`);
   }
 
-  const expiresIn = Math.max(60, Number(payload.expires_in || 3600));
+  const parsedExpiry = Date.parse(payload.expireTime || '');
   tokenCache = {
-    token: payload.access_token,
-    expiresAt: Date.now() + expiresIn * 1000,
+    token: payload.accessToken,
+    expiresAt: Number.isFinite(parsedExpiry) ? parsedExpiry : Date.now() + 55 * 60 * 1000,
     pending: null,
   };
   return tokenCache.token;
 }
 
-async function getAccessToken() {
-  if (tokenCache.token && Date.now() < tokenCache.expiresAt - TOKEN_SAFETY_MS) {
-    return tokenCache.token;
-  }
+async function getAccessToken(req) {
+  if (tokenCache.token && Date.now() < tokenCache.expiresAt - TOKEN_SAFETY_MS) return tokenCache.token;
   if (!tokenCache.pending) {
-    tokenCache.pending = requestAccessToken().catch(error => {
+    tokenCache.pending = impersonateServiceAccount(req).catch(error => {
       tokenCache.pending = null;
       throw error;
     });
@@ -114,8 +120,8 @@ async function getAccessToken() {
   return tokenCache.pending;
 }
 
-async function googleGet(url) {
-  const token = await getAccessToken();
+async function googleGet(url, req) {
+  const token = await getAccessToken(req);
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
     cache: 'no-store',
@@ -151,22 +157,22 @@ function valuesToObjects(values) {
   return { headers, rows };
 }
 
-async function fetchSheetByName(sheetId, sheetName) {
+async function fetchSheetByName(sheetId, sheetName, req) {
   const safeTitle = escapeSheetTitle(sheetName);
   const range = `'${safeTitle}'!A:ZZZ`;
   const url = `${SHEETS_API}/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(range)}` +
-    '?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE';
-  const payload = await googleGet(url);
+    '?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING';
+  const payload = await googleGet(url, req);
   return valuesToObjects(payload.values || []);
 }
 
-async function getSheetMetadata(sheetId) {
+async function getSheetMetadata(sheetId, req) {
   const cached = metadataCache.get(sheetId);
   if (cached && Date.now() - cached.at < METADATA_CACHE_MS) return cached.map;
 
   const url = `${SHEETS_API}/${encodeURIComponent(sheetId)}` +
     '?fields=' + encodeURIComponent('sheets(properties(sheetId,title))');
-  const payload = await googleGet(url);
+  const payload = await googleGet(url, req);
   const map = new Map();
   (payload.sheets || []).forEach(item => {
     const props = item && item.properties || {};
@@ -177,11 +183,11 @@ async function getSheetMetadata(sheetId) {
   return map;
 }
 
-async function fetchSheetByGid(sheetId, gid) {
-  const map = await getSheetMetadata(sheetId);
+async function fetchSheetByGid(sheetId, gid, req) {
+  const map = await getSheetMetadata(sheetId, req);
   const title = map.get(String(gid));
   if (!title) throw new Error(`Nie znaleziono zakladki o GID ${gid} w arkuszu ${sheetId}.`);
-  return fetchSheetByName(sheetId, title);
+  return fetchSheetByName(sheetId, title, req);
 }
 
 function csvCell(value) {
@@ -212,8 +218,18 @@ function isActive(value) {
 }
 
 function serviceAccountEmail() {
-  try { return getCredentials().email; }
-  catch (_) { return String(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '').trim(); }
+  return String(process.env.GCP_SERVICE_ACCOUNT_EMAIL || '').trim();
+}
+
+function oidcInfo() {
+  const cfg = getOidcConfig();
+  return {
+    projectId: cfg.projectId,
+    projectNumber: cfg.projectNumber,
+    serviceAccountEmail: cfg.serviceAccountEmail,
+    poolId: cfg.poolId,
+    providerId: cfg.providerId,
+  };
 }
 
 module.exports = {
@@ -225,6 +241,7 @@ module.exports = {
   normalizeEmail,
   normalizeGoogleId,
   normalizeMetaId,
+  oidcInfo,
   serviceAccountEmail,
   stringifyCsv,
 };

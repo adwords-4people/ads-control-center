@@ -66,17 +66,17 @@ module.exports = async function handler(req, res) {
     if (mode === 'name' && sheetId === IDS.google) {
       const sheet = String(req.query.sheet || '');
       if (!GOOGLE_SHEETS.has(sheet)) { res.statusCode = 400; return res.end('Niedozwolona zakładka Google Ads.'); }
-      result = await fetchSheetByName(IDS.google, sheet);
+      result = await fetchSheetByName(IDS.google, sheet, req);
       filtered = filterGoogle(result.rows, scope, sheet);
     } else if (mode === 'name' && sheetId === IDS.config) {
       const sheet = String(req.query.sheet || '');
       if (!CONFIG_SHEETS.has(sheet)) { res.statusCode = 400; return res.end('Niedozwolona zakładka konfiguracji.'); }
-      result = await fetchSheetByName(IDS.config, sheet);
+      result = await fetchSheetByName(IDS.config, sheet, req);
       filtered = filterConfig(result.rows, scope, sheet);
     } else if (mode === 'gid' && sheetId === IDS.meta) {
       const gid = String(req.query.gid || '');
       if (!META_GIDS.has(gid)) { res.statusCode = 400; return res.end('Niedozwolony raport Meta Ads.'); }
-      result = await fetchSheetByGid(IDS.meta, gid);
+      result = await fetchSheetByGid(IDS.meta, gid, req);
       filtered = filterMeta(result.rows, scope);
     } else {
       res.statusCode = 400;

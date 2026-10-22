@@ -26,7 +26,7 @@ module.exports = async function handler(req, res) {
       return res.end(JSON.stringify({ ok: true, previewing: false }));
     }
 
-    const target = await getActiveUserByEmail(email);
+    const target = await getActiveUserByEmail(email, req);
     if (!target) { res.statusCode = 400; return res.end(JSON.stringify({ error: 'invalid_user' })); }
     setPreviewCookie(res, target.email);
     return res.end(JSON.stringify({ ok: true, previewing: true, user: target }));

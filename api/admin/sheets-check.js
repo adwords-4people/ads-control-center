@@ -1,5 +1,5 @@
 const { getAuthContext, isAdmin } = require('../_lib/access');
-const { IDS, fetchSheetByGid, fetchSheetByName, serviceAccountEmail } = require('../_lib/sheets');
+const { IDS, fetchSheetByGid, fetchSheetByName, oidcInfo } = require('../_lib/sheets');
 
 async function runCheck(name, fn) {
   const started = Date.now();
@@ -26,20 +26,20 @@ module.exports = async function handler(req, res) {
     if (!isAdmin(context.actualUser)) { res.statusCode = 403; return res.end(JSON.stringify({ ok: false, error: 'admin_only' })); }
 
     const checks = await Promise.all([
-      runCheck('Config / Użytkownicy', () => fetchSheetByName(IDS.config, 'Użytkownicy')),
-      runCheck('Config / MCK - Google Ads', () => fetchSheetByName(IDS.config, 'MCK - Google Ads')),
-      runCheck('Config / Konta - Google Ads', () => fetchSheetByName(IDS.config, 'Konta - Google Ads')),
-      runCheck('Config / Konta - Meta Ads', () => fetchSheetByName(IDS.config, 'Konta - Meta Ads')),
-      runCheck('Google Ads / Wydatki', () => fetchSheetByName(IDS.google, 'Wydatki')),
-      runCheck('Meta Ads / Raport_Miesieczny (GID)', () => fetchSheetByGid(IDS.meta, '1581500139')),
+      runCheck('Config / Użytkownicy', () => fetchSheetByName(IDS.config, 'Użytkownicy', req)),
+      runCheck('Config / MCK - Google Ads', () => fetchSheetByName(IDS.config, 'MCK - Google Ads', req)),
+      runCheck('Config / Konta - Google Ads', () => fetchSheetByName(IDS.config, 'Konta - Google Ads', req)),
+      runCheck('Config / Konta - Meta Ads', () => fetchSheetByName(IDS.config, 'Konta - Meta Ads', req)),
+      runCheck('Google Ads / Wydatki', () => fetchSheetByName(IDS.google, 'Wydatki', req)),
+      runCheck('Meta Ads / Raport_Miesieczny (GID)', () => fetchSheetByGid(IDS.meta, '1581500139', req)),
     ]);
 
     const ok = checks.every(item => item.ok);
     res.statusCode = ok ? 200 : 503;
     return res.end(JSON.stringify({
       ok,
-      auth: 'google-service-account',
-      serviceAccountEmail: serviceAccountEmail(),
+      auth: 'vercel-oidc-workload-identity-federation',
+      oidc: oidcInfo(),
       checks,
     }, null, 2));
   } catch (error) {

@@ -1,82 +1,75 @@
-# PPC Control Center — Auth v3 / prywatne Google Sheets
+# PPC Control Center - Auth v3 OIDC / Private Google Sheets
 
-## Co zmienia v3
-Auth v2 (Google Workspace, role, Team, „Podgląd jako”) zostaje bez zmian.
-Zmienia się wyłącznie sposób, w jaki backend Vercela czyta arkusze:
+Ta wersja zachowuje Auth v2 (Google Workspace, role, Team, Podglad jako...) i zamienia publiczny odczyt CSV na prywatny Google Sheets API przez Vercel OIDC + Google Workload Identity Federation.
 
-- wcześniej: publiczny CSV / gviz,
-- teraz: Google Sheets API + konto serwisowe,
-- brak fallbacku do publicznego CSV — jeśli konto serwisowe nie ma dostępu, backend zgłasza błąd.
+## 1. Wymagane Environment Variables w Vercel / Production
 
-Dzięki temu po poprawnym teście można ustawić arkusze jako `Ograniczony / Restricted`.
+Dotychczasowe:
+- GOOGLE_CLIENT_ID
+- GOOGLE_CLIENT_SECRET
+- AUTH_SECRET
+- APP_URL=https://ppccontrolcenter.vercel.app
+- ALLOWED_DOMAIN=4people.pl
+- CONFIG_SHEET_ID=1fy9NxgD9G52lRRie4Br9L-Y_VRVseZ4ksFmH32t5v8M
 
-## Nowe Environment Variables
-Dodaj w Vercel (Production):
+Nowe:
+- GCP_PROJECT_ID=ppc-control-center-512313
+- GCP_PROJECT_NUMBER=515371390885
+- GCP_SERVICE_ACCOUNT_EMAIL=ppc-control-center-sheets@ppc-control-center-512313.iam.gserviceaccount.com
+- GCP_WORKLOAD_IDENTITY_POOL_ID=vercel
+- GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID=vercel
 
-- `GOOGLE_SERVICE_ACCOUNT_EMAIL` — Config
-- `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` — Secret
+NIE dodawaj GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY. Ta wersja nie uzywa kluczy JSON/PEM.
 
-Pozostają istniejące:
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-- `APP_URL`
-- `ALLOWED_DOMAIN`
-- `CONFIG_SHEET_ID`
-- `AUTH_SECRET`
+## 2. Google Cloud
 
-Opcjonalne (kod ma firmowe wartości domyślne):
-- `GOOGLE_DATA_SHEET_ID`
-- `META_DATA_SHEET_ID`
+Vercel OIDC Team issuer:
+- iss: https://oidc.vercel.com/4people
+- aud: https://vercel.com/4people
+- sub: owner:4people:project:ppc_control_center:environment:production
 
-## Google Cloud — konfiguracja konta serwisowego
-1. W tym samym projekcie Google Cloud włącz `Google Sheets API`.
-2. IAM & Admin -> Service Accounts -> Create service account.
-3. Nazwa np. `ppc-control-center-sheets`.
-4. Nie nadawaj roli projektowej — do odczytu konkretnych plików nie jest potrzebna.
-5. Wejdź w konto serwisowe -> Keys -> Add key -> Create new key -> JSON.
-6. Z pobranego JSON skopiuj:
-   - `client_email` -> `GOOGLE_SERVICE_ACCOUNT_EMAIL`
-   - `private_key` -> `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`
-7. Pliku JSON nie wrzucaj do GitHub i po zapisaniu sekretu trzymaj go bezpiecznie albo usuń z komputera.
+Workload Identity Pool / Provider:
+- pool: vercel
+- provider: vercel
 
-## Udostępnij 3 arkusze kontu serwisowemu
-W każdym pliku kliknij Udostępnij i dodaj email konta serwisowego jako `Wyświetlający / Viewer`:
+Service Account:
+- ppc-control-center-sheets@ppc-control-center-512313.iam.gserviceaccount.com
+- federowana tozsamosc produkcji musi miec roles/iam.workloadIdentityUser na tym koncie.
 
-1. Konfiguracja:
-   `1fy9NxgD9G52lRRie4Br9L-Y_VRVseZ4ksFmH32t5v8M`
-2. Google Ads data:
-   `1_CMt0tZhGqT3y6wp5tTpetU7GtNtt2bKkzERg2iLNhw`
-3. Meta Ads data:
-   `1_GCw4RqECUNeKisRNXSpb0ekcz1IQNxgb180ymexLOU`
+Wlacz API:
+- Google Sheets API
+- Security Token Service API
+- IAM Service Account Credentials API
 
-Na tym etapie NIE wyłączaj jeszcze „każdy z linkiem”. Najpierw wdroż v3 i wykonaj check.
+## 3. Udostepnij arkusze Service Accountowi jako Wyświetlajacy
 
-## Test przed zamknięciem arkuszy
-Po deployu zaloguj się jako Admin i otwórz:
+- Config: 1fy9NxgD9G52lRRie4Br9L-Y_VRVseZ4ksFmH32t5v8M
+- Google Ads: 1_CMt0tZhGqT3y6wp5tTpetU7GtNtt2bKkzERg2iLNhw
+- Meta Ads: 1_GCw4RqECUNeKisRNXSpb0ekcz1IQNxgb180ymexLOU
 
-`https://ppccontrolcenter.vercel.app/api/admin/sheets-check`
+Na razie nie usuwaj publicznego dostepu.
+
+## 4. Wdrozenie
+
+Wgraj zawartosc tej paczki do root repo, zachowujac katalog api/. Commit do main uruchomi nowy Production deployment.
+
+## 5. Test przed zamknieciem arkuszy
+
+Zaloguj sie jako Admin i otworz:
+https://ppccontrolcenter.vercel.app/api/admin/sheets-check
 
 Oczekiwane:
-- `"ok": true`
-- wszystkie pozycje `checks[].ok = true`
-- widoczny właściwy `serviceAccountEmail`
+- ok: true
+- auth: vercel-oidc-workload-identity-federation
+- wszystkie checks[].ok = true
 
-Następnie sprawdź normalny dashboard i `Podgląd jako Adrian/Kinga`.
+Nastepnie sprawdz dashboard:
+- Admin: wszystkie konta
+- Podglad jako Adrian: tylko jego konta
+- Podglad jako Kinga: caly Team PPC
 
-## Zamknięcie publicznego dostępu
-Dopiero po poprawnym checku:
-1. Otwórz każdy z 3 arkuszy.
-2. Udostępnij -> Dostęp ogólny / General access.
-3. Zmień `Każdy, kto ma link` na `Ograniczony / Restricted`.
-4. NIE usuwaj konta serwisowego z listy osób mających dostęp.
-5. Zostaw skrypty Google Ads / Meta Ads z ich obecnymi uprawnieniami — zapisują dane niezależnie od Vercela.
+## 6. Dopiero po sukcesie
 
-Po zamknięciu ponownie:
-- `/api/admin/sheets-check` -> `ok: true`
-- Admin -> wszystkie konta
-- Podgląd Adrian -> tylko Adrian
-- Podgląd Kinga -> team PPC
+W trzech Google Sheets zmien Dostep ogolny z "Kazdy, kto ma link" na "Ograniczony". Nie usuwaj konta serwisowego z listy dostepu.
 
-## Rotacja klucza
-Klucz konta serwisowego jest długoterminowym sekretem. Trzymaj go tylko w Vercel Secret, nie w repo.
-W razie wycieku utwórz nowy key, zaktualizuj Vercel, a stary key usuń w Google Cloud.
+Ponownie uruchom /api/admin/sheets-check i test rol.

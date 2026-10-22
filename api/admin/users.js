@@ -10,7 +10,7 @@ module.exports = async function handler(req, res) {
     if (!context) { res.statusCode = 401; return res.end(JSON.stringify({ error: 'unauthenticated' })); }
     if (!isAdmin(context.actualUser)) { res.statusCode = 403; return res.end(JSON.stringify({ error: 'forbidden' })); }
 
-    const users = (await loadUsers())
+    const users = (await loadUsers(req))
       .filter(user => user.active)
       .map(({ email, name, role, team }) => ({ email, name, role, team }));
     return res.end(JSON.stringify({ users }));

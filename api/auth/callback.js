@@ -62,7 +62,7 @@ module.exports = async function handler(req, res) {
       return redirect(res, `${configuredAppUrl}/?auth=domain_denied`);
     }
 
-    const user = await getActiveUserByEmail(email);
+    const user = await getActiveUserByEmail(email, req);
     if (!user) return redirect(res, `${configuredAppUrl}/?auth=forbidden`);
 
     setSessionCookie(res, user);

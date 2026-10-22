@@ -28,7 +28,7 @@ async function getAuthContext(req) {
   const session = getSession(req);
   if (!session) return null;
 
-  const actualUser = await getActiveUserByEmail(session.email);
+  const actualUser = await getActiveUserByEmail(session.email, req);
   if (!actualUser) return null;
 
   let effectiveUser = actualUser;
@@ -36,7 +36,7 @@ async function getAuthContext(req) {
   if (isAdmin(actualUser)) {
     const previewEmail = getPreviewEmail(req);
     if (previewEmail) {
-      const previewUser = await getActiveUserByEmail(previewEmail);
+      const previewUser = await getActiveUserByEmail(previewEmail, req);
       if (previewUser) {
         effectiveUser = previewUser;
         previewing = previewUser.email !== actualUser.email;
@@ -47,13 +47,13 @@ async function getAuthContext(req) {
   return { actualUser, effectiveUser, previewing };
 }
 
-async function loadMappings() {
+async function loadMappings(req) {
   if (Date.now() - mappingCache.at < CACHE_MS && mappingCache.googleAccounts.length) return mappingCache;
 
   const [mckSheet, googleSheet, metaSheet] = await Promise.all([
-    fetchSheetByName(IDS.config, 'MCK - Google Ads'),
-    fetchSheetByName(IDS.config, 'Konta - Google Ads'),
-    fetchSheetByName(IDS.config, 'Konta - Meta Ads'),
+    fetchSheetByName(IDS.config, 'MCK - Google Ads', req),
+    fetchSheetByName(IDS.config, 'Konta - Google Ads', req),
+    fetchSheetByName(IDS.config, 'Konta - Meta Ads', req),
   ]);
 
   mappingCache = {
@@ -65,11 +65,11 @@ async function loadMappings() {
   return mappingCache;
 }
 
-async function permittedEmailsForUser(user) {
+async function permittedEmailsForUser(user, req) {
   if (isAdmin(user)) return null;
   if (!isManager(user)) return new Set([normalizeEmail(user.email)]);
 
-  const users = await loadUsers();
+  const users = await loadUsers(req);
   const team = String(user.team || '').trim().toLowerCase();
   return new Set(users
     .filter(item => item.active && String(item.team || '').trim().toLowerCase() === team)
@@ -85,8 +85,8 @@ async function getAccessScope(req) {
     return { ...context, unrestricted: true };
   }
 
-  const emails = await permittedEmailsForUser(effectiveUser);
-  const mappings = await loadMappings();
+  const emails = await permittedEmailsForUser(effectiveUser, req);
+  const mappings = await loadMappings(req);
 
   const allowedMcks = new Set(mappings.mcks
     .filter(row => isActive(row['Aktywne']) && emails.has(normalizeEmail(row['Email'])))
