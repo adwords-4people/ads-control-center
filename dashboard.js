@@ -704,75 +704,91 @@ async function loadAllData() {
     '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr>';
 
   try {
-    const sheetKeys = ['wydatki','audyt','audytWart','wyniki','wartKonw','anomalia','notatki'];
-    const metaKeys  = Object.keys(META_GIDS);
-    const configKeys = Object.keys(CONFIG_SHEET_NAMES); // ['progiGoogle', 'progiMeta']
+    // Auth v3.1: jeden request do backendu zamiast 17 osobnych wywołań /api/data.
+    // Dzięki temu sesja, OIDC/WIF, zakres użytkownika i token Sheets API są liczone raz,
+    // a wszystkie raporty pobierane są w jednym kontrolowanym przebiegu.
+    const response = await fetch('/api/dashboard-data', {
+      signal,
+      cache: 'no-store',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' },
+    });
 
-    const [sheetResults, metaResults, configResults] = await Promise.all([
-      Promise.allSettled(sheetKeys.map(key => fetchCsvByName(SHEET_ID, SHEET_NAMES[key], signal))),
-      META_SHEET_ID
-        ? Promise.allSettled(metaKeys.map(key => fetchCsv(META_GIDS[key], signal, META_SHEET_ID, key === 'metaMiesieczny')))
-        : Promise.resolve(metaKeys.map(() => ({status:'fulfilled', value: []}))),
-      CONFIG_SHEET_ID
-        ? Promise.allSettled(configKeys.map(key => fetchCsvByName(CONFIG_SHEET_ID, CONFIG_SHEET_NAMES[key], signal)))
-        : Promise.resolve(configKeys.map(() => ({status:'fulfilled', value: []}))),
-    ]);
-
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || `HTTP ${response.status} dla /api/dashboard-data`);
+    }
     if (signal.aborted) return;
+
     const sheetErrors = [];
-    const loaded = {};
-    let metaMonthlyError = META_SHEET_ID ? '' : 'Nie skonfigurowano pliku Meta Ads.';
+    const sources = payload.sources || {};
 
-    sheetResults.forEach((result, i) => {
-      const key = sheetKeys[i];
-      if (result.status === 'fulfilled') {
-        loaded[key] = result.value;
-        return;
+    function unpack(key) {
+      const source = sources[key];
+      if (!source || !source.ok) {
+        const message = source && source.error ? source.error : 'Brak danych ze źródła.';
+        sheetErrors.push(`${key}: ${message}`);
+        const empty = [];
+        Object.defineProperty(empty, '_headers', { value: [], enumerable: false });
+        return empty;
       }
-      if (result.reason && result.reason.name === 'AbortError') throw result.reason;
-      loaded[key] = [];
-      sheetErrors.push(`${key}: ${result.reason && result.reason.message ? result.reason.message : result.reason}`);
-    });
+      const rows = Array.isArray(source.rows) ? source.rows : [];
+      const headers = Array.isArray(source.headers) ? source.headers : [];
+      Object.defineProperty(rows, '_headers', { value: headers, enumerable: false });
+      return rows;
+    }
 
-    metaResults.forEach((result, i) => {
-      const key = metaKeys[i];
-      if (result.status === 'fulfilled') {
-        loaded[key] = result.value;
-        return;
+    const wydatki = unpack('wydatki');
+    const audyt = unpack('audyt');
+    const audytWart = unpack('audytWart');
+    const wyniki = unpack('wyniki');
+    const wartKonw = unpack('wartKonw');
+    const anomalia = unpack('anomalia');
+    const notatki = unpack('notatki');
+
+    const metaWydatki = unpack('metaWydatki');
+    const metaAnomalia = unpack('metaAnomalia');
+    const metaDzienny = unpack('metaDzienny');
+    let metaMiesieczny = unpack('metaMiesieczny');
+    const metaAudyt = unpack('metaAudyt');
+    const metaKonta = unpack('metaKonta');
+    const metaAudytWart = unpack('metaAudytWart');
+    const metaWartoscKonwersji = unpack('metaWartoscKonwersji');
+
+    const progiGoogle = unpack('progiGoogle');
+    const progiMeta = unpack('progiMeta');
+
+    let metaMonthlyError = '';
+    if (sources.metaMiesieczny && sources.metaMiesieczny.ok) {
+      try {
+        validateMetaMonthlyHeaders([metaMiesieczny._headers || []], '');
+      } catch (error) {
+        metaMonthlyError = error.message;
+        sheetErrors.push(`metaMiesieczny: ${metaMonthlyError}`);
+        metaMiesieczny = [];
+        Object.defineProperty(metaMiesieczny, '_headers', { value: [], enumerable: false });
       }
-      if (result.reason && result.reason.name === 'AbortError') throw result.reason;
-      loaded[key] = [];
-      const message = result.reason && result.reason.message ? result.reason.message : String(result.reason);
-      sheetErrors.push(`${key}: ${message}`);
-      if (key === 'metaMiesieczny') metaMonthlyError = message;
-    });
+    } else {
+      metaMonthlyError = sources.metaMiesieczny && sources.metaMiesieczny.error
+        ? sources.metaMiesieczny.error
+        : 'Nie udało się pobrać raportu miesięcznego Meta Ads.';
+    }
 
-    configResults.forEach((result, i) => {
-      const key = configKeys[i];
-      if (result.status === 'fulfilled') {
-        loaded[key] = result.value;
-        return;
-      }
-      if (result.reason && result.reason.name === 'AbortError') throw result.reason;
-      loaded[key] = [];
-      sheetErrors.push(`${key}: ${result.reason && result.reason.message ? result.reason.message : result.reason}`);
-    });
-
-    const {wydatki,audyt,audytWart,wyniki,wartKonw,anomalia,notatki,metaWydatki,metaDzienny,metaMiesieczny,metaAudyt,metaAudytWart,metaAnomalia,metaWartoscKonwersji,metaKonta,progiGoogle,progiMeta} = loaded;
-    DATA = { wydatki, audyt, audytWart, wyniki, wartKonw, anomalia, notatki, metaWydatki, metaDzienny, metaMiesieczny, metaAudyt, metaAudytWart, metaAnomalia,  metaWartoscKonwersji, metaKonta, progiGoogle, progiMeta };
+    DATA = {
+      wydatki, audyt, audytWart, wyniki, wartKonw, anomalia, notatki,
+      metaWydatki, metaDzienny, metaMiesieczny, metaAudyt, metaAudytWart,
+      metaAnomalia, metaWartoscKonwersji, metaKonta, progiGoogle, progiMeta,
+    };
 
     DATA._metaMonthlyError = metaMonthlyError;
     DATA._metaIssues = metaMonthlyError ? [metaMonthlyError] : [];
     DATA._metaIssues.push(...collectMetaDataIssues(DATA));
 
     COMPARISON_WARNINGS.clear();
-    DATA._idx    = buildIndexes(DATA);
+    DATA._idx = buildIndexes(DATA);
     DATA._config = buildConfig(DATA.progiGoogle);
     DATA._metaConfig = buildMetaConfig(DATA.progiMeta);
-    // Mapy nazwa konta -> ID konta, budowane z Wydatki (jedyna zakładka, która ZAWSZE ma
-    // kolumnę "ID Konta" dla każdego zsynchronizowanego konta) — używane przez
-    // getThresholds()/getMetaThresholds() do kluczowania progów po ID, nie po nazwie.
-    DATA._nameToId     = buildNameToIdMap(DATA.wydatki);
+    DATA._nameToId = buildNameToIdMap(DATA.wydatki);
     DATA._nameToIdMeta = buildNameToIdMap(DATA.metaWydatki);
 
     NOTES = mapNotatkiRows(notatki);
@@ -784,37 +800,39 @@ async function loadAllData() {
     if (sheetErrors.length) console.warn('[Dashboard] Nie wszystkie arkusze zostały pobrane:', sheetErrors);
 
     GOOGLE_KONTA = [...new Set([
-      ...wydatki.map(r=>(r['Konto']||'').trim()),
-      ...audyt.map(r=>(r['Konto']||'').trim()),
-      ...wyniki.map(r=>(r['Konto']||'').trim()),
-      ...wartKonw.map(r=>(r['Konto']||'').trim()),
-      ...anomalia.map(r=>(r['Konto']||'').trim()),
+      ...wydatki.map(r => (r['Konto'] || '').trim()),
+      ...audyt.map(r => (r['Konto'] || '').trim()),
+      ...wyniki.map(r => (r['Konto'] || '').trim()),
+      ...wartKonw.map(r => (r['Konto'] || '').trim()),
+      ...anomalia.map(r => (r['Konto'] || '').trim()),
     ])].filter(Boolean).sort();
+
     META_KONTA = [...new Set([
-      ...(metaWydatki||[]).map(r=>(r['Konto']||'').trim()),
-      ...(metaDzienny||[]).map(r=>(r['Konto']||'').trim()),
-      ...(metaMiesieczny||[]).map(r=>(r['Konto']||'').trim()),
+      ...(metaWydatki || []).map(r => (r['Konto'] || '').trim()),
+      ...(metaDzienny || []).map(r => (r['Konto'] || '').trim()),
+      ...(metaMiesieczny || []).map(r => (r['Konto'] || '').trim()),
     ])].filter(Boolean).sort();
+
     ALL_KONTA = [...new Set([...GOOGLE_KONTA, ...META_KONTA])].sort();
     updateKontoDropdowns();
 
     renderAll();
     renderNotesList();
-  } catch(e) {
+  } catch (e) {
     if (e.name === 'AbortError') return;
-    document.getElementById('lastUpdate').textContent='Błąd: '+e.message;
-    const errorRow = `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:24px">Błąd pobierania danych: ${escHtml(e.message)}<br><br>Sprawdź aktywną sesję oraz endpoint /api/data. Jeśli problem dotyczy jednego raportu, sprawdź logi Vercel.</td></tr>`;
+    document.getElementById('lastUpdate').textContent = 'Błąd: ' + e.message;
+    const errorRow = `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:24px">Błąd pobierania danych: ${escHtml(e.message)}<br><br>Sprawdź aktywną sesję oraz endpoint /api/dashboard-data. Szczegóły są też w /api/admin/sheets-check.</td></tr>`;
     document.getElementById('statusBody').innerHTML = errorRow;
     document.getElementById('metaOverviewBody').innerHTML = errorRow.replace('colspan="8"', 'colspan="10"');
-    console.error('[Dashboard]',e);
+    console.error('[Dashboard]', e);
   } finally {
-    // Starsze, anulowane pobranie nie może wyłączyć stanu nowego odświeżania.
     if (dataAbortController && dataAbortController.signal === signal) {
       btn.classList.remove('loading');
       dataAbortController = null;
     }
   }
 }
+
 
 // Buduje mapę Nazwa konta -> ID konta z wierszy zakładki Wydatki (jedynej, która ma
 // gwarantowaną kolumnę "ID Konta" dla każdego zsynchronizowanego konta). Używana przez
