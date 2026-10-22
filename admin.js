@@ -513,9 +513,6 @@
     if (document.getElementById('accountAssignModal') && !document.getElementById('accountAssignModal').hidden) window.closeAccountAssignment();
   });
 
-  if (typeof waitForAuth === 'function') {
-    waitForAuth().then(session => {
-      if (session && session.authenticated && window.AUTH_CAN_CLIENTS) window.loadAdminOverview();
-    });
-  }
+  // Widoki Admin/Manager ładujemy dopiero przy wejściu do zakładki Klienci/Administracja.
+  // Nie konkurujemy dzięki temu z głównym /api/dashboard-data przy starcie aplikacji.
 })();

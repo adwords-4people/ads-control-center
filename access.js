@@ -2,7 +2,6 @@ const { getPreviewEmail, getSession } = require('./auth');
 const { getActiveUserByEmail, loadUsers } = require('./users');
 const {
   IDS,
-  fetchSheetByName,
   fetchSheetsByName,
   isActive,
   normalizeEmail,
@@ -10,7 +9,7 @@ const {
   normalizeMetaId,
 } = require('./sheets');
 
-const CACHE_MS = 0; // mapowanie kont musi odzwierciedlac zmiany Admina od nastepnego requestu
+const CACHE_MS = 0;
 let mappingCache = { at: 0, mcks: [], googleAccounts: [], metaAccounts: [] };
 
 function clearMappingsCache() {
@@ -70,19 +69,7 @@ async function loadMappings(req) {
   return mappingCache;
 }
 
-async function permittedEmailsForUser(user, req) {
-  if (isAdmin(user)) return null;
-  if (!isManager(user)) return new Set([normalizeEmail(user.email)]);
-
-  const users = await loadUsers(req);
-  const team = String(user.team || '').trim().toLowerCase();
-  return new Set(users
-    .filter(item => item.active && String(item.team || '').trim().toLowerCase() === team)
-    .map(item => normalizeEmail(item.email)));
-}
-
-async function buildScopedAccess(context, emails, req) {
-  const mappings = await loadMappings(req);
+function buildScopedAccessFromMappings(context, emails, mappings) {
   const allowedMcks = new Set(mappings.mcks
     .filter(row => isActive(row['Aktywne']) && emails.has(normalizeEmail(row['Email'])))
     .map(row => String(row['MCK_ID'] || '').trim())
@@ -101,6 +88,47 @@ async function buildScopedAccess(context, emails, req) {
     metaIds: new Set(metaRows.map(row => normalizeMetaId(row['ID Konta'])).filter(Boolean)),
     metaNames: new Set(metaRows.map(row => String(row['Konto'] || '').trim().toLowerCase()).filter(Boolean)),
   };
+}
+
+async function buildScopedAccess(context, emails, req) {
+  const mappings = await loadMappings(req);
+  return buildScopedAccessFromMappings(context, emails, mappings);
+}
+
+async function permittedEmailsForUser(user, req) {
+  if (isAdmin(user)) return null;
+  if (!isManager(user)) return new Set([normalizeEmail(user.email)]);
+
+  const users = await loadUsers(req);
+  const team = String(user.team || '').trim().toLowerCase();
+  return new Set(users
+    .filter(item => item.active && String(item.team || '').trim().toLowerCase() === team)
+    .map(item => normalizeEmail(item.email)));
+}
+
+async function getDashboardScopes(req) {
+  const context = await getAuthContext(req);
+  if (!context) return null;
+
+  const effectiveEmail = normalizeEmail(context.effectiveUser && context.effectiveUser.email);
+  const mappings = await loadMappings(req);
+  const personalScope = buildScopedAccessFromMappings(context, new Set(effectiveEmail ? [effectiveEmail] : []), mappings);
+
+  let accessScope;
+  if (isAdmin(context.effectiveUser)) {
+    accessScope = { ...context, unrestricted: true };
+  } else if (isManager(context.effectiveUser)) {
+    const users = await loadUsers(req);
+    const team = String(context.effectiveUser.team || '').trim().toLowerCase();
+    const teamEmails = new Set(users
+      .filter(item => item.active && String(item.team || '').trim().toLowerCase() === team)
+      .map(item => normalizeEmail(item.email)));
+    accessScope = buildScopedAccessFromMappings(context, teamEmails, mappings);
+  } else {
+    accessScope = personalScope;
+  }
+
+  return { context, personalScope, accessScope };
 }
 
 async function getPersonalScope(req) {
@@ -123,4 +151,12 @@ async function getAccessScope(req) {
   return buildScopedAccess(context, emails, req);
 }
 
-module.exports = { clearMappingsCache, getAccessScope, getAuthContext, getPersonalScope, isAdmin, isManager };
+module.exports = {
+  clearMappingsCache,
+  getAccessScope,
+  getAuthContext,
+  getDashboardScopes,
+  getPersonalScope,
+  isAdmin,
+  isManager,
+};

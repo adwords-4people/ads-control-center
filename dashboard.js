@@ -690,11 +690,14 @@ function handleSortClick(th) {
 //  ŁADOWANIE DANYCH
 // ═══════════════════════════════════════════════════════
 async function loadAllData() {
-  if (dataAbortController) {
-    dataAbortController.abort();
-  }
-  dataAbortController = new AbortController();
-  const signal = dataAbortController.signal;
+  // Controller trzymamy na window, aby dashboard.js nie zależał od deklaracji
+  // globalnej w data.js. To zapobiega zatrzymaniu aplikacji na "Ładowanie danych…"
+  // przy różnicach wersji plików po deploymencie.
+  const previousController = window.__PPC_DATA_ABORT_CONTROLLER__;
+  if (previousController) previousController.abort();
+  const controller = new AbortController();
+  window.__PPC_DATA_ABORT_CONTROLLER__ = controller;
+  const signal = controller.signal;
 
   const btn = document.getElementById('refreshBtn');
   btn.classList.add('loading');
@@ -827,9 +830,9 @@ async function loadAllData() {
     document.getElementById('metaOverviewBody').innerHTML = errorRow.replace('colspan="8"', 'colspan="10"');
     console.error('[Dashboard]', e);
   } finally {
-    if (dataAbortController && dataAbortController.signal === signal) {
+    if (window.__PPC_DATA_ABORT_CONTROLLER__ === controller) {
       btn.classList.remove('loading');
-      dataAbortController = null;
+      window.__PPC_DATA_ABORT_CONTROLLER__ = null;
     }
   }
 }
@@ -1452,6 +1455,9 @@ function applyPageUI(name, btn) {
 
   if (name==='dziennik') {
     document.getElementById('webappBanner').style.display = WEBAPP_URL ? 'none' : 'flex';
+  }
+  if ((name === 'clients' || name === 'admin') && typeof window.loadAdminOverview === 'function') {
+    window.loadAdminOverview(false);
   }
   renderMetaDataNotice();
   renderComparisonHelp();

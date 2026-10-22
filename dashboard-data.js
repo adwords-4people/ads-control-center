@@ -1,4 +1,4 @@
-const { getAccessScope, getPersonalScope } = require('./_lib/access');
+const { getDashboardScopes } = require('./_lib/access');
 const { loadAllDashboardSources } = require('./_lib/data-sources');
 
 module.exports = async function handler(req, res) {
@@ -6,14 +6,14 @@ module.exports = async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
   try {
-    const [scope, notesScope] = await Promise.all([getPersonalScope(req), getAccessScope(req)]);
-    if (!scope || !notesScope) {
+    const scopes = await getDashboardScopes(req);
+    if (!scopes) {
       res.statusCode = 401;
       return res.end(JSON.stringify({ ok: false, error: 'unauthenticated' }));
     }
 
     const started = Date.now();
-    const { sources, errors } = await loadAllDashboardSources(req, scope, { notesScope });
+    const { sources, errors } = await loadAllDashboardSources(req, scopes.personalScope, { notesScope: scopes.accessScope });
 
     res.statusCode = 200;
     return res.end(JSON.stringify({
