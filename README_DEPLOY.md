@@ -1,38 +1,82 @@
-# PPC Control Center — Auth v2 / podgląd jako użytkownik
+# PPC Control Center — Auth v3 / prywatne Google Sheets
 
-## Co robi ta wersja
-- Admin widzi selektor „Podgląd jako” i może przetestować widok Managera/Specjalisty bez ich logowania.
-- `api/data` filtruje raporty po stronie backendu według aktywnego użytkownika/roli.
-- Admin: pełny widok.
-- Manager: konta wszystkich aktywnych użytkowników z tego samego Teamu.
-- Specjalista: tylko konta przypisane do jego emaila.
-- Google Ads: email -> `MCK - Google Ads` -> `MCK_ID` -> `Konta - Google Ads`.
-- Meta Ads: email -> `Konta - Meta Ads`.
+## Co zmienia v3
+Auth v2 (Google Workspace, role, Team, „Podgląd jako”) zostaje bez zmian.
+Zmienia się wyłącznie sposób, w jaki backend Vercela czyta arkusze:
 
-## Pliki do podmiany/dodania
-Podmień/dodaj całą zawartość tej paczki w root repo (zachowując foldery `api/`).
-Nie usuwaj `styles.css` ani `notes.js`.
+- wcześniej: publiczny CSV / gviz,
+- teraz: Google Sheets API + konto serwisowe,
+- brak fallbacku do publicznego CSV — jeśli konto serwisowe nie ma dostępu, backend zgłasza błąd.
 
-## Environment Variables
-Wystarczą istniejące:
-- GOOGLE_CLIENT_ID
-- GOOGLE_CLIENT_SECRET
-- APP_URL
-- ALLOWED_DOMAIN
-- CONFIG_SHEET_ID
-- AUTH_SECRET
+Dzięki temu po poprawnym teście można ustawić arkusze jako `Ograniczony / Restricted`.
 
-Opcjonalnie możesz dodać:
-- GOOGLE_DATA_SHEET_ID
-- META_DATA_SHEET_ID
-Jeśli ich nie dodasz, kod użyje firmowych ID już wpisanych jako wartości domyślne.
+## Nowe Environment Variables
+Dodaj w Vercel (Production):
 
-## Test bez Adriana
-1. Zaloguj się jako Karol/Admin.
-2. W nagłówku wybierz `Podgląd jako -> Adrian Felis — Specjalista · PPC`.
-3. Strona przeładuje się i pokaże żółty pasek „Tryb testowy”.
-4. Dane są pobierane przez `/api/data` i filtrowane jak dla Adriana.
-5. Wybierz `Własny widok — Karol (Admin)`, aby wrócić do pełnego widoku.
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL` — Config
+- `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` — Secret
 
-## Ważne ograniczenie bezpieczeństwa
-Na tym etapie aplikacja filtruje dane po backendzie, ale same Google Sheets nadal są publicznie czytelne przez link/CSV. To znaczy, że ten etap testuje poprawność uprawnień w aplikacji, ale pełne bezpieczeństwo wymaga później ustawienia arkuszy jako prywatne i odczytu przez konto serwisowe / Google Sheets API.
+Pozostają istniejące:
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `APP_URL`
+- `ALLOWED_DOMAIN`
+- `CONFIG_SHEET_ID`
+- `AUTH_SECRET`
+
+Opcjonalne (kod ma firmowe wartości domyślne):
+- `GOOGLE_DATA_SHEET_ID`
+- `META_DATA_SHEET_ID`
+
+## Google Cloud — konfiguracja konta serwisowego
+1. W tym samym projekcie Google Cloud włącz `Google Sheets API`.
+2. IAM & Admin -> Service Accounts -> Create service account.
+3. Nazwa np. `ppc-control-center-sheets`.
+4. Nie nadawaj roli projektowej — do odczytu konkretnych plików nie jest potrzebna.
+5. Wejdź w konto serwisowe -> Keys -> Add key -> Create new key -> JSON.
+6. Z pobranego JSON skopiuj:
+   - `client_email` -> `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+   - `private_key` -> `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`
+7. Pliku JSON nie wrzucaj do GitHub i po zapisaniu sekretu trzymaj go bezpiecznie albo usuń z komputera.
+
+## Udostępnij 3 arkusze kontu serwisowemu
+W każdym pliku kliknij Udostępnij i dodaj email konta serwisowego jako `Wyświetlający / Viewer`:
+
+1. Konfiguracja:
+   `1fy9NxgD9G52lRRie4Br9L-Y_VRVseZ4ksFmH32t5v8M`
+2. Google Ads data:
+   `1_CMt0tZhGqT3y6wp5tTpetU7GtNtt2bKkzERg2iLNhw`
+3. Meta Ads data:
+   `1_GCw4RqECUNeKisRNXSpb0ekcz1IQNxgb180ymexLOU`
+
+Na tym etapie NIE wyłączaj jeszcze „każdy z linkiem”. Najpierw wdroż v3 i wykonaj check.
+
+## Test przed zamknięciem arkuszy
+Po deployu zaloguj się jako Admin i otwórz:
+
+`https://ppccontrolcenter.vercel.app/api/admin/sheets-check`
+
+Oczekiwane:
+- `"ok": true`
+- wszystkie pozycje `checks[].ok = true`
+- widoczny właściwy `serviceAccountEmail`
+
+Następnie sprawdź normalny dashboard i `Podgląd jako Adrian/Kinga`.
+
+## Zamknięcie publicznego dostępu
+Dopiero po poprawnym checku:
+1. Otwórz każdy z 3 arkuszy.
+2. Udostępnij -> Dostęp ogólny / General access.
+3. Zmień `Każdy, kto ma link` na `Ograniczony / Restricted`.
+4. NIE usuwaj konta serwisowego z listy osób mających dostęp.
+5. Zostaw skrypty Google Ads / Meta Ads z ich obecnymi uprawnieniami — zapisują dane niezależnie od Vercela.
+
+Po zamknięciu ponownie:
+- `/api/admin/sheets-check` -> `ok: true`
+- Admin -> wszystkie konta
+- Podgląd Adrian -> tylko Adrian
+- Podgląd Kinga -> team PPC
+
+## Rotacja klucza
+Klucz konta serwisowego jest długoterminowym sekretem. Trzymaj go tylko w Vercel Secret, nie w repo.
+W razie wycieku utwórz nowy key, zaktualizuj Vercel, a stary key usuń w Google Cloud.
