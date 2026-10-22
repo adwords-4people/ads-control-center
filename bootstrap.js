@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const BUILD = '1.7.3';
+  const BUILD = '1.7.5';
   let started = false;
 
   function esc(value) {

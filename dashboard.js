@@ -1567,7 +1567,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ═══════════════════════════════════════════════════════
-//  INIT przejmuje bootstrap.js (v1.7.3).
+//  INIT przejmuje bootstrap.js (v1.7.5).
 // ═══════════════════════════════════════════════════════
 window.loadAllData = loadAllData;
-window.PPC_DASHBOARD_JS_VERSION = '1.7.3';
+window.PPC_DASHBOARD_JS_VERSION = '1.7.5';
