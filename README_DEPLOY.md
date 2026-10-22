@@ -1,19 +1,55 @@
-# ADS Dashboard — wersja modularna
+# PPC Control Center — Google Workspace Auth v1
 
-Pliki:
-- `index.html` — struktura strony
-- `styles.css` — wygląd
-- `data.js` — konfiguracja, progi, CSV i funkcje danych
-- `dashboard.js` — renderowanie, filtrowanie, sortowanie, nawigacja i odświeżanie
-- `notes.js` — Dziennik zmian
+## Co podmienić / dodać w GitHub
 
-## Wdrożenie na GitHub Pages
+Podmień istniejące pliki:
+- `index.html`
+- `dashboard.js`
 
-1. Zrób kopię obecnego `index.html`.
-2. Wgraj wszystkie 5 plików do głównego katalogu repozytorium, na tym samym poziomie.
-3. Zastąp obecny `index.html` nowym.
-4. Commit i push do gałęzi publikowanej przez GitHub Pages (u Ciebie najpewniej `main`).
-5. Otwórz GitHub → Settings → Pages i upewnij się, że źródłem jest ta sama gałąź i katalog `/ (root)`.
-6. Po publikacji wykonaj twarde odświeżenie strony (Ctrl+F5 / Cmd+Shift+R).
+Dodaj nowe pliki:
+- `auth.js`
+- `auth.css`
+- `api/_lib/auth.js`
+- `api/_lib/users.js`
+- `api/auth/login.js`
+- `api/auth/callback.js`
+- `api/me.js`
+- `api/logout.js`
 
-Nie zmieniaj nazw plików bez równoczesnej zmiany odwołań `<link>`/`<script>` w `index.html`.
+Nie zmieniaj w tym wdrożeniu:
+- `data.js`
+- `notes.js`
+- `styles.css`
+
+## Wymagane Environment Variables w Vercel — Production
+
+- `GOOGLE_CLIENT_ID` — Config
+- `GOOGLE_CLIENT_SECRET` — Secret
+- `APP_URL=https://ppccontrolcenter.vercel.app` — Config
+- `ALLOWED_DOMAIN=4people.pl` — Config
+- `CONFIG_SHEET_ID=1fy9NxgD9G52lRRie4Br9L-Y_VRVseZ4ksFmH32t5v8M` — Config
+- `AUTH_SECRET` — Secret, losowy ciąg min. 32 znaki
+
+## Google OAuth
+
+OAuth Client type: `Web application`
+
+Authorized origin:
+`https://ppccontrolcenter.vercel.app`
+
+Authorized redirect URI:
+`https://ppccontrolcenter.vercel.app/api/auth/callback`
+
+## Po wgraniu
+
+1. Commit do `main`, np. `Add Google Workspace authentication`.
+2. Poczekaj na automatyczny Production deployment w Vercel.
+3. Nie trzeba osobno klikać Redeploy, jeśli commit utworzył nowy deployment po dodaniu env vars.
+4. Otwórz `https://ppccontrolcenter.vercel.app` w Incognito.
+5. Przed zalogowaniem dashboard nie powinien pobierać danych — powinien pojawić się ekran Google Workspace.
+6. Zaloguj się aktywnym użytkownikiem z zakładki `Użytkownicy`.
+7. Po powrocie powinien pojawić się dashboard oraz użytkownik / rola / team w nagłówku.
+
+## Uwaga bezpieczeństwa
+
+To jest Auth v1. Logowanie jest serwerowe, ale dane reklamowe nadal są pobierane z Google Sheets przez obecny mechanizm CSV. Pełne ograniczenie danych per użytkownik będzie kolejnym etapem — backend API + filtrowanie rekordów + zamknięcie publicznego CSV.

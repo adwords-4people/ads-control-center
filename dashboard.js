@@ -1514,6 +1514,12 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ═══════════════════════════════════════════════════════
-//  INIT
+//  INIT — dane ładujemy dopiero po poprawnym logowaniu
 // ═══════════════════════════════════════════════════════
-loadAllData();
+if (typeof waitForAuth === 'function') {
+  waitForAuth().then(session => {
+    if (session && session.authenticated) loadAllData();
+  });
+} else {
+  console.error('[Auth] auth.js nie został załadowany — pobieranie danych zablokowane.');
+}
