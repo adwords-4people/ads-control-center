@@ -73,8 +73,7 @@ function filterConfig(rows, scope, sheetName) {
   });
 }
 
-async function loadAllDashboardSources(req, scope, options = {}) {
-  const notesScope = options.notesScope || scope;
+async function loadAllDashboardSources(req, scope) {
   // Jeden batchGet na każdy plik zamiast osobnego requestu na każdą zakładkę.
   // Dzięki temu pełny dashboard zużywa ~4 odczyty Sheets API zamiast ~18.
   const metaMetadata = await getSheetMetadata(IDS.meta, req);
@@ -105,8 +104,7 @@ async function loadAllDashboardSources(req, scope, options = {}) {
     try {
       const result = googleBatch.get(sheetName);
       if (!result) throw new Error(`Brak zakladki Google: ${sheetName}.`);
-      const filterScope = sheetName === 'Dziennik zmian' ? notesScope : scope;
-      sources[key] = { ok: true, headers: result.headers, rows: filterGoogle(result.rows, filterScope, sheetName) };
+      sources[key] = { ok: true, headers: result.headers, rows: filterGoogle(result.rows, scope, sheetName) };
     } catch (error) { fail(key, error); }
   });
 

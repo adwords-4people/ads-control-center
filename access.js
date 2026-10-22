@@ -9,7 +9,7 @@ const {
   normalizeMetaId,
 } = require('./sheets');
 
-const CACHE_MS = 0;
+const CACHE_MS = 0; // mapowanie kont musi odzwierciedlac zmiany Admina od nastepnego requestu
 let mappingCache = { at: 0, mcks: [], googleAccounts: [], metaAccounts: [] };
 
 function clearMappingsCache() {
@@ -69,7 +69,20 @@ async function loadMappings(req) {
   return mappingCache;
 }
 
-function buildScopedAccessFromMappings(context, emails, mappings) {
+async function permittedEmailsForUser(user, req) {
+  if (isAdmin(user)) return null;
+  if (!isManager(user)) return new Set([normalizeEmail(user.email)]);
+
+  const users = await loadUsers(req);
+  const team = String(user.team || '').trim().toLowerCase();
+  return new Set(users
+    .filter(item => item.active && String(item.team || '').trim().toLowerCase() === team)
+    .map(item => normalizeEmail(item.email)));
+}
+
+async function buildAccountScope(context, emails, req) {
+  const mappings = await loadMappings(req);
+
   const allowedMcks = new Set(mappings.mcks
     .filter(row => isActive(row['Aktywne']) && emails.has(normalizeEmail(row['Email'])))
     .map(row => String(row['MCK_ID'] || '').trim())
@@ -90,54 +103,9 @@ function buildScopedAccessFromMappings(context, emails, mappings) {
   };
 }
 
-async function buildScopedAccess(context, emails, req) {
-  const mappings = await loadMappings(req);
-  return buildScopedAccessFromMappings(context, emails, mappings);
-}
-
-async function permittedEmailsForUser(user, req) {
-  if (isAdmin(user)) return null;
-  if (!isManager(user)) return new Set([normalizeEmail(user.email)]);
-
-  const users = await loadUsers(req);
-  const team = String(user.team || '').trim().toLowerCase();
-  return new Set(users
-    .filter(item => item.active && String(item.team || '').trim().toLowerCase() === team)
-    .map(item => normalizeEmail(item.email)));
-}
-
-async function getDashboardScopes(req) {
-  const context = await getAuthContext(req);
-  if (!context) return null;
-
-  const effectiveEmail = normalizeEmail(context.effectiveUser && context.effectiveUser.email);
-  const mappings = await loadMappings(req);
-  const personalScope = buildScopedAccessFromMappings(context, new Set(effectiveEmail ? [effectiveEmail] : []), mappings);
-
-  let accessScope;
-  if (isAdmin(context.effectiveUser)) {
-    accessScope = { ...context, unrestricted: true };
-  } else if (isManager(context.effectiveUser)) {
-    const users = await loadUsers(req);
-    const team = String(context.effectiveUser.team || '').trim().toLowerCase();
-    const teamEmails = new Set(users
-      .filter(item => item.active && String(item.team || '').trim().toLowerCase() === team)
-      .map(item => normalizeEmail(item.email)));
-    accessScope = buildScopedAccessFromMappings(context, teamEmails, mappings);
-  } else {
-    accessScope = personalScope;
-  }
-
-  return { context, personalScope, accessScope };
-}
-
-async function getPersonalScope(req) {
-  const context = await getAuthContext(req);
-  if (!context) return null;
-  const email = normalizeEmail(context.effectiveUser && context.effectiveUser.email);
-  return buildScopedAccess(context, new Set(email ? [email] : []), req);
-}
-
+// Szeroki zakres zarzadzania: zachowujemy dotychczasowa semantyke dla widokow typu
+// Admin -> Klienci oraz innych endpointow administracyjnych.
+// Admin: wszystkie konta, Manager: caly Team, Specjalista: tylko swoje.
 async function getAccessScope(req) {
   const context = await getAuthContext(req);
   if (!context) return null;
@@ -148,15 +116,26 @@ async function getAccessScope(req) {
   }
 
   const emails = await permittedEmailsForUser(effectiveUser, req);
-  return buildScopedAccess(context, emails, req);
+  return buildAccountScope(context, emails, req);
+}
+
+// Zakres zwyklych raportow jest zawsze bezposredni, niezaleznie od roli.
+// Admin, Manager i Specjalista widza tylko konta przypisane do effective user.
+// W trybie preview effective user jest uzytkownikiem podgladanym przez Admina.
+async function getReportingScope(req) {
+  const context = await getAuthContext(req);
+  if (!context) return null;
+
+  const email = normalizeEmail(context.effectiveUser && context.effectiveUser.email);
+  if (!email) return null;
+
+  return buildAccountScope(context, new Set([email]), req);
 }
 
 module.exports = {
   clearMappingsCache,
   getAccessScope,
   getAuthContext,
-  getDashboardScopes,
-  getPersonalScope,
+  getReportingScope,
   isAdmin,
-  isManager,
 };
