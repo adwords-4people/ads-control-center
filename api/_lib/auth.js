@@ -2,7 +2,9 @@ const crypto = require('crypto');
 
 const SESSION_COOKIE = 'ppc_session';
 const STATE_COOKIE = 'ppc_oauth_state';
+const PREVIEW_COOKIE = 'ppc_preview';
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
+const PREVIEW_TTL_SECONDS = 2 * 60 * 60;
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -25,32 +27,38 @@ function safeEqual(a, b) {
   return aa.length === bb.length && crypto.timingSafeEqual(aa, bb);
 }
 
-function createSessionToken(user) {
+function createSignedPayload(payload, ttlSeconds) {
   const now = Math.floor(Date.now() / 1000);
-  const payload = {
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    team: user.team,
-    iat: now,
-    exp: now + SESSION_TTL_SECONDS,
-  };
-  const encoded = base64url(JSON.stringify(payload));
+  const encoded = base64url(JSON.stringify({ ...payload, iat: now, exp: now + ttlSeconds }));
   return `${encoded}.${sign(encoded)}`;
 }
 
-function verifySessionToken(token) {
+function verifySignedPayload(token) {
   if (!token || !token.includes('.')) return null;
   const [encoded, signature] = token.split('.');
   if (!encoded || !signature || !safeEqual(sign(encoded), signature)) return null;
   try {
     const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
     const now = Math.floor(Date.now() / 1000);
-    if (!payload.email || !payload.exp || payload.exp <= now) return null;
+    if (!payload.exp || payload.exp <= now) return null;
     return payload;
   } catch (_) {
     return null;
   }
+}
+
+function createSessionToken(user) {
+  return createSignedPayload({
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    team: user.team,
+  }, SESSION_TTL_SECONDS);
+}
+
+function verifySessionToken(token) {
+  const payload = verifySignedPayload(token);
+  return payload && payload.email ? payload : null;
 }
 
 function parseCookies(req) {
@@ -82,12 +90,30 @@ function setSessionCookie(res, user) {
 }
 
 function clearSessionCookie(res) {
-  res.setHeader('Set-Cookie', cookie(SESSION_COOKIE, '', { maxAge: 0 }));
+  res.setHeader('Set-Cookie', [
+    cookie(SESSION_COOKIE, '', { maxAge: 0 }),
+    cookie(PREVIEW_COOKIE, '', { maxAge: 0 }),
+  ]);
 }
 
 function getSession(req) {
   const cookies = parseCookies(req);
   return verifySessionToken(cookies[SESSION_COOKIE]);
+}
+
+function setPreviewCookie(res, email) {
+  const token = createSignedPayload({ email: String(email || '').trim().toLowerCase() }, PREVIEW_TTL_SECONDS);
+  res.setHeader('Set-Cookie', cookie(PREVIEW_COOKIE, token, { maxAge: PREVIEW_TTL_SECONDS }));
+}
+
+function clearPreviewCookie(res) {
+  res.setHeader('Set-Cookie', cookie(PREVIEW_COOKIE, '', { maxAge: 0 }));
+}
+
+function getPreviewEmail(req) {
+  const cookies = parseCookies(req);
+  const payload = verifySignedPayload(cookies[PREVIEW_COOKIE]);
+  return payload && payload.email ? String(payload.email).trim().toLowerCase() : '';
 }
 
 function createState() {
@@ -106,11 +132,14 @@ function consumeAndVerifyState(req, res, providedState) {
 }
 
 module.exports = {
+  clearPreviewCookie,
   clearSessionCookie,
   consumeAndVerifyState,
   createState,
+  getPreviewEmail,
   getSession,
   requireEnv,
+  setPreviewCookie,
   setSessionCookie,
   setStateCookie,
 };

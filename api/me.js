@@ -1,30 +1,24 @@
-const { clearSessionCookie, getSession } = require('./_lib/auth');
-const { getActiveUserByEmail } = require('./_lib/users');
+const { clearSessionCookie } = require('./_lib/auth');
+const { getAuthContext } = require('./_lib/access');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
   try {
-    const session = getSession(req);
-    if (!session) return res.end(JSON.stringify({ authenticated: false }));
-
-    // Re-check the configuration on every session probe so setting Aktywne=NIE
-    // takes effect without waiting for the cookie to expire.
-    const currentUser = await getActiveUserByEmail(session.email);
-    if (!currentUser) {
+    const context = await getAuthContext(req);
+    if (!context) {
       clearSessionCookie(res);
       return res.end(JSON.stringify({ authenticated: false }));
     }
 
+    const user = context.effectiveUser;
+    const actual = context.actualUser;
     return res.end(JSON.stringify({
       authenticated: true,
-      user: {
-        email: currentUser.email,
-        name: currentUser.name,
-        role: currentUser.role,
-        team: currentUser.team,
-      },
+      previewing: context.previewing,
+      user: { email: user.email, name: user.name, role: user.role, team: user.team },
+      actualUser: { email: actual.email, name: actual.name, role: actual.role, team: actual.team },
     }));
   } catch (error) {
     console.error('[Auth me]', error);

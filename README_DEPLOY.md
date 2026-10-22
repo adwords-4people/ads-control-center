@@ -1,55 +1,38 @@
-# PPC Control Center — Google Workspace Auth v1
+# PPC Control Center — Auth v2 / podgląd jako użytkownik
 
-## Co podmienić / dodać w GitHub
+## Co robi ta wersja
+- Admin widzi selektor „Podgląd jako” i może przetestować widok Managera/Specjalisty bez ich logowania.
+- `api/data` filtruje raporty po stronie backendu według aktywnego użytkownika/roli.
+- Admin: pełny widok.
+- Manager: konta wszystkich aktywnych użytkowników z tego samego Teamu.
+- Specjalista: tylko konta przypisane do jego emaila.
+- Google Ads: email -> `MCK - Google Ads` -> `MCK_ID` -> `Konta - Google Ads`.
+- Meta Ads: email -> `Konta - Meta Ads`.
 
-Podmień istniejące pliki:
-- `index.html`
-- `dashboard.js`
+## Pliki do podmiany/dodania
+Podmień/dodaj całą zawartość tej paczki w root repo (zachowując foldery `api/`).
+Nie usuwaj `styles.css` ani `notes.js`.
 
-Dodaj nowe pliki:
-- `auth.js`
-- `auth.css`
-- `api/_lib/auth.js`
-- `api/_lib/users.js`
-- `api/auth/login.js`
-- `api/auth/callback.js`
-- `api/me.js`
-- `api/logout.js`
+## Environment Variables
+Wystarczą istniejące:
+- GOOGLE_CLIENT_ID
+- GOOGLE_CLIENT_SECRET
+- APP_URL
+- ALLOWED_DOMAIN
+- CONFIG_SHEET_ID
+- AUTH_SECRET
 
-Nie zmieniaj w tym wdrożeniu:
-- `data.js`
-- `notes.js`
-- `styles.css`
+Opcjonalnie możesz dodać:
+- GOOGLE_DATA_SHEET_ID
+- META_DATA_SHEET_ID
+Jeśli ich nie dodasz, kod użyje firmowych ID już wpisanych jako wartości domyślne.
 
-## Wymagane Environment Variables w Vercel — Production
+## Test bez Adriana
+1. Zaloguj się jako Karol/Admin.
+2. W nagłówku wybierz `Podgląd jako -> Adrian Felis — Specjalista · PPC`.
+3. Strona przeładuje się i pokaże żółty pasek „Tryb testowy”.
+4. Dane są pobierane przez `/api/data` i filtrowane jak dla Adriana.
+5. Wybierz `Własny widok — Karol (Admin)`, aby wrócić do pełnego widoku.
 
-- `GOOGLE_CLIENT_ID` — Config
-- `GOOGLE_CLIENT_SECRET` — Secret
-- `APP_URL=https://ppccontrolcenter.vercel.app` — Config
-- `ALLOWED_DOMAIN=4people.pl` — Config
-- `CONFIG_SHEET_ID=1fy9NxgD9G52lRRie4Br9L-Y_VRVseZ4ksFmH32t5v8M` — Config
-- `AUTH_SECRET` — Secret, losowy ciąg min. 32 znaki
-
-## Google OAuth
-
-OAuth Client type: `Web application`
-
-Authorized origin:
-`https://ppccontrolcenter.vercel.app`
-
-Authorized redirect URI:
-`https://ppccontrolcenter.vercel.app/api/auth/callback`
-
-## Po wgraniu
-
-1. Commit do `main`, np. `Add Google Workspace authentication`.
-2. Poczekaj na automatyczny Production deployment w Vercel.
-3. Nie trzeba osobno klikać Redeploy, jeśli commit utworzył nowy deployment po dodaniu env vars.
-4. Otwórz `https://ppccontrolcenter.vercel.app` w Incognito.
-5. Przed zalogowaniem dashboard nie powinien pobierać danych — powinien pojawić się ekran Google Workspace.
-6. Zaloguj się aktywnym użytkownikiem z zakładki `Użytkownicy`.
-7. Po powrocie powinien pojawić się dashboard oraz użytkownik / rola / team w nagłówku.
-
-## Uwaga bezpieczeństwa
-
-To jest Auth v1. Logowanie jest serwerowe, ale dane reklamowe nadal są pobierane z Google Sheets przez obecny mechanizm CSV. Pełne ograniczenie danych per użytkownik będzie kolejnym etapem — backend API + filtrowanie rekordów + zamknięcie publicznego CSV.
+## Ważne ograniczenie bezpieczeństwa
+Na tym etapie aplikacja filtruje dane po backendzie, ale same Google Sheets nadal są publicznie czytelne przez link/CSV. To znaczy, że ten etap testuje poprawność uprawnień w aplikacji, ale pełne bezpieczeństwo wymaga później ustawienia arkuszy jako prywatne i odczytu przez konto serwisowe / Google Sheets API.

@@ -127,3 +127,41 @@ html.auth-locked .shell { visibility: hidden; }
   .auth-user-main { padding-right: 6px; }
   .auth-logout { display: none; }
 }
+.auth-preview-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 4px 8px;
+  border: 1px solid var(--border, #e1e3e5);
+  border-radius: 9px;
+  background: var(--bg, #fff);
+  color: var(--muted, #666);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.auth-preview-control select {
+  max-width: 230px;
+  min-height: 28px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text, #303235);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.auth-preview-banner {
+  margin: 12px 18px 0;
+  padding: 8px 12px;
+  border: 1px solid #e8c76f;
+  border-radius: 8px;
+  background: #fff8df;
+  color: #675015;
+  font-size: 12px;
+  line-height: 1.4;
+}
+@media (max-width: 1100px) {
+  .auth-preview-control span { display: none; }
+  .auth-preview-control select { max-width: 160px; }
+}

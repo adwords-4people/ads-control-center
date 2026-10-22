@@ -21,6 +21,10 @@
     history.replaceState(history.state, '', url.pathname + (url.search ? url.search : '') + url.hash);
   }
 
+  function escapeHtml(value) {
+    return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
   function createOverlay() {
     const overlay = document.createElement('div');
     overlay.className = 'auth-overlay';
@@ -32,8 +36,7 @@
         <p id="authDesc" class="auth-desc">Dostęp do firmowego dashboardu reklamowego.</p>
         <div class="auth-status" id="authStatus">Sprawdzam sesję…</div>
         <a class="auth-google-btn" id="authLoginBtn" href="/api/auth/login" hidden>
-          <span class="auth-google-mark">G</span>
-          Zaloguj przez Google Workspace
+          <span class="auth-google-mark">G</span>Zaloguj przez Google Workspace
         </a>
         <p class="auth-foot">Dostęp tylko dla aktywnych użytkowników 4people.</p>
       </div>`;
@@ -41,7 +44,63 @@
     return overlay;
   }
 
-  function renderUserChip(user) {
+  function addPreviewBanner(session) {
+    if (!session.previewing) return;
+    const main = document.querySelector('.main');
+    if (!main || document.getElementById('authPreviewBanner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'authPreviewBanner';
+    banner.className = 'auth-preview-banner';
+    banner.innerHTML = `Tryb testowy: widok <strong>${escapeHtml(session.user.name || session.user.email)}</strong> · ${escapeHtml(session.user.role || '')}${session.user.team ? ' · ' + escapeHtml(session.user.team) : ''}`;
+    main.prepend(banner);
+  }
+
+  async function setPreview(email) {
+    const response = await fetch('/api/admin/preview', {
+      method: 'POST',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email || '' }),
+    });
+    if (!response.ok) throw new Error('Nie udało się zmienić widoku testowego.');
+    window.location.reload();
+  }
+
+  async function attachAdminPreview(select, session) {
+    try {
+      const response = await fetch('/api/admin/users', { cache: 'no-store', credentials: 'same-origin' });
+      if (!response.ok) return;
+      const payload = await response.json();
+      const users = payload.users || [];
+      const actualEmail = session.actualUser.email;
+      const own = document.createElement('option');
+      own.value = '';
+      own.textContent = `Własny widok — ${session.actualUser.name || session.actualUser.email} (Admin)`;
+      select.appendChild(own);
+      users.filter(u => u.email !== actualEmail).forEach(user => {
+        const option = document.createElement('option');
+        option.value = user.email;
+        option.textContent = `${user.name || user.email} — ${user.role}${user.team ? ' · ' + user.team : ''}`;
+        if (session.previewing && session.user.email === user.email) option.selected = true;
+        select.appendChild(option);
+      });
+      if (!session.previewing) own.selected = true;
+      select.disabled = false;
+      select.addEventListener('change', () => {
+        select.disabled = true;
+        setPreview(select.value).catch(error => {
+          console.error('[Auth preview]', error);
+          select.disabled = false;
+        });
+      });
+    } catch (error) {
+      console.warn('[Auth preview users]', error);
+    }
+  }
+
+  function renderUserChip(session) {
+    const user = session.user;
     const header = document.querySelector('.header');
     if (!header || document.getElementById('authUser')) return;
 
@@ -49,31 +108,33 @@
     wrap.className = 'auth-user';
     wrap.id = 'authUser';
     wrap.innerHTML = `
-      <button class="auth-user-main" type="button" aria-label="Zalogowany użytkownik">
+      <div class="auth-user-main" aria-label="Aktywny widok użytkownika">
         <span class="auth-avatar">${String(user.name || user.email).trim().charAt(0).toUpperCase()}</span>
         <span class="auth-user-copy">
           <strong>${escapeHtml(user.name || user.email)}</strong>
           <small>${escapeHtml(user.role || '')}${user.team ? ' · ' + escapeHtml(user.team) : ''}</small>
         </span>
-      </button>
+      </div>
       <button class="auth-logout" type="button" id="authLogoutBtn" title="Wyloguj">Wyloguj</button>`;
-    header.appendChild(wrap);
+
+    if (session.actualUser && String(session.actualUser.role || '').toLowerCase() === 'admin') {
+      const previewWrap = document.createElement('label');
+      previewWrap.className = 'auth-preview-control';
+      previewWrap.innerHTML = '<span>Podgląd jako</span><select id="authPreviewSelect" disabled><option>Ładowanie…</option></select>';
+      wrap.prepend(previewWrap);
+      header.appendChild(wrap);
+      attachAdminPreview(previewWrap.querySelector('select'), session);
+    } else {
+      header.appendChild(wrap);
+    }
 
     document.getElementById('authLogoutBtn').addEventListener('click', async () => {
       const btn = document.getElementById('authLogoutBtn');
       btn.disabled = true;
-      try { await fetch('/api/logout', { method: 'POST', cache: 'no-store' }); } catch (_) {}
+      try { await fetch('/api/logout', { method: 'POST', cache: 'no-store', credentials: 'same-origin' }); } catch (_) {}
       window.location.assign('/');
     });
-  }
-
-  function escapeHtml(value) {
-    return String(value || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+    addPreviewBanner(session);
   }
 
   async function initAuth() {
@@ -88,7 +149,7 @@
 
       if (data && data.authenticated && data.user) {
         window.AUTH_SESSION = data;
-        renderUserChip(data.user);
+        renderUserChip(data);
         overlay.remove();
         document.documentElement.classList.remove('auth-pending', 'auth-locked');
         cleanAuthQuery();
@@ -111,9 +172,6 @@
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initAuth, { once: true });
-  } else {
-    initAuth();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initAuth, { once: true });
+  else initAuth();
 })();

@@ -110,7 +110,7 @@ function filterRows(rows, platform) {
 //  TABELA DYNAMICZNA Z SORTOWANIEM
 // ═══════════════════════════════════════════════════════
 // Kolumny techniczne (surowe ID), ukrywane domyślnie w tabelach szczegółowych - nie niosą wartości dla przeglądającego
-const HIDDEN_COLS = new Set(['ID Konta','ID Zestawu','Data','Data i godzina aktualizacji']);
+const HIDDEN_COLS = new Set(['ID Konta','MCK_ID','ID Zestawu','Data','Data i godzina aktualizacji']);
 
 // Wspólne nazwy kolumn w UI dla Google Ads i Meta Ads.
 // Klucze danych z CSV pozostają bez zmian — ta warstwa zmienia wyłącznie etykiety <th>.
@@ -803,7 +803,7 @@ async function loadAllData() {
   } catch(e) {
     if (e.name === 'AbortError') return;
     document.getElementById('lastUpdate').textContent='Błąd: '+e.message;
-    const errorRow = `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:24px">Błąd pobierania danych: ${escHtml(e.message)}<br><br>Upewnij się, że arkusz jest publiczny:<br><em>Udostępnij → Każdy z linkiem → Przeglądający</em></td></tr>`;
+    const errorRow = `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:24px">Błąd pobierania danych: ${escHtml(e.message)}<br><br>Sprawdź aktywną sesję oraz endpoint /api/data. Jeśli problem dotyczy jednego raportu, sprawdź logi Vercel.</td></tr>`;
     document.getElementById('statusBody').innerHTML = errorRow;
     document.getElementById('metaOverviewBody').innerHTML = errorRow.replace('colspan="8"', 'colspan="10"');
     console.error('[Dashboard]',e);
