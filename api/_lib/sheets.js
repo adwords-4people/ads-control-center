@@ -187,6 +187,30 @@ async function fetchSheetByName(sheetId, sheetName, req) {
   return valuesToObjects(payload.values || []);
 }
 
+
+async function fetchSheetsByName(sheetId, sheetNames, req) {
+  const names = [...new Set((sheetNames || []).map(name => String(name || '').trim()).filter(Boolean))];
+  if (!names.length) return new Map();
+
+  const params = new URLSearchParams({
+    majorDimension: 'ROWS',
+    valueRenderOption: 'FORMATTED_VALUE',
+    dateTimeRenderOption: 'FORMATTED_STRING',
+  });
+  names.forEach(name => params.append('ranges', `'${escapeSheetTitle(name)}'!A:ZZZ`));
+
+  const url = `${SHEETS_API}/${encodeURIComponent(sheetId)}/values:batchGet?${params.toString()}`;
+  const payload = await googleGet(url, req);
+  const result = new Map();
+  const valueRanges = Array.isArray(payload.valueRanges) ? payload.valueRanges : [];
+
+  names.forEach((name, index) => {
+    const item = valueRanges[index] || {};
+    result.set(name, valuesToObjects(item.values || []));
+  });
+  return result;
+}
+
 async function getSheetMetadata(sheetId, req) {
   const cached = metadataCache.get(sheetId);
   if (cached && Date.now() - cached.at < METADATA_CACHE_MS) return cached.map;
@@ -273,6 +297,7 @@ module.exports = {
   appendSheetValues,
   fetchSheetByGid,
   fetchSheetByName,
+  fetchSheetsByName,
   getSheetMetadata,
   isActive,
   normalizeEmail,

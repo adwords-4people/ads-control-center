@@ -3,13 +3,14 @@ const { getActiveUserByEmail, loadUsers } = require('./users');
 const {
   IDS,
   fetchSheetByName,
+  fetchSheetsByName,
   isActive,
   normalizeEmail,
   normalizeGoogleId,
   normalizeMetaId,
 } = require('./sheets');
 
-const CACHE_MS = 60 * 1000;
+const CACHE_MS = 0; // mapowanie kont musi odzwierciedlac zmiany Admina od nastepnego requestu
 let mappingCache = { at: 0, mcks: [], googleAccounts: [], metaAccounts: [] };
 
 function clearMappingsCache() {
@@ -54,17 +55,17 @@ async function getAuthContext(req) {
 async function loadMappings(req) {
   if (Date.now() - mappingCache.at < CACHE_MS && mappingCache.googleAccounts.length) return mappingCache;
 
-  const [mckSheet, googleSheet, metaSheet] = await Promise.all([
-    fetchSheetByName(IDS.config, 'MCK - Google Ads', req),
-    fetchSheetByName(IDS.config, 'Konta - Google Ads', req),
-    fetchSheetByName(IDS.config, 'Konta - Meta Ads', req),
-  ]);
+  const sheets = await fetchSheetsByName(IDS.config, [
+    'MCK - Google Ads',
+    'Konta - Google Ads',
+    'Konta - Meta Ads',
+  ], req);
 
   mappingCache = {
     at: Date.now(),
-    mcks: mckSheet.rows,
-    googleAccounts: googleSheet.rows,
-    metaAccounts: metaSheet.rows,
+    mcks: (sheets.get('MCK - Google Ads') || { rows: [] }).rows,
+    googleAccounts: (sheets.get('Konta - Google Ads') || { rows: [] }).rows,
+    metaAccounts: (sheets.get('Konta - Meta Ads') || { rows: [] }).rows,
   };
   return mappingCache;
 }

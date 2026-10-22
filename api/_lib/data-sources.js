@@ -1,6 +1,7 @@
 const {
   IDS,
   fetchSheetByName,
+  fetchSheetsByName,
   getSheetMetadata,
   normalizeGoogleId,
   normalizeMetaId,
@@ -73,55 +74,62 @@ function filterConfig(rows, scope, sheetName) {
 }
 
 async function loadAllDashboardSources(req, scope) {
-  // Resolve Meta GIDs once per request. This avoids 8 concurrent metadata lookups.
+  // Jeden batchGet na każdy plik zamiast osobnego requestu na każdą zakładkę.
+  // Dzięki temu pełny dashboard zużywa ~4 odczyty Sheets API zamiast ~18.
   const metaMetadata = await getSheetMetadata(IDS.meta, req);
 
-  const jobs = [];
+  const googleNames = Object.values(GOOGLE_SOURCES);
+  const configNames = Object.values(CONFIG_SOURCES);
+  const metaTitlesByKey = new Map();
+  Object.entries(META_SOURCES).forEach(([key, gid]) => {
+    const title = metaMetadata.get(String(gid));
+    if (title) metaTitlesByKey.set(key, { title, gid });
+  });
+
+  const [googleBatch, configBatch, metaBatch] = await Promise.all([
+    fetchSheetsByName(IDS.google, googleNames, req),
+    fetchSheetsByName(IDS.config, configNames, req),
+    fetchSheetsByName(IDS.meta, [...metaTitlesByKey.values()].map(item => item.title), req),
+  ]);
+
+  const sources = {};
+  const errors = [];
+  const fail = (key, error) => {
+    const message = error && error.message ? error.message : String(error);
+    sources[key] = { ok: false, headers: [], rows: [], error: message };
+    errors.push({ key, error: message });
+  };
+
   Object.entries(GOOGLE_SOURCES).forEach(([key, sheetName]) => {
-    jobs.push({
-      key,
-      run: async () => {
-        const result = await fetchSheetByName(IDS.google, sheetName, req);
-        return { headers: result.headers, rows: filterGoogle(result.rows, scope, sheetName) };
-      },
-    });
+    try {
+      const result = googleBatch.get(sheetName);
+      if (!result) throw new Error(`Brak zakladki Google: ${sheetName}.`);
+      sources[key] = { ok: true, headers: result.headers, rows: filterGoogle(result.rows, scope, sheetName) };
+    } catch (error) { fail(key, error); }
   });
 
   Object.entries(META_SOURCES).forEach(([key, gid]) => {
-    jobs.push({
-      key,
-      run: async () => {
-        const title = metaMetadata.get(String(gid));
-        if (!title) throw new Error(`Nie znaleziono zakładki Meta o GID ${gid}.`);
-        const result = await fetchSheetByName(IDS.meta, title, req);
-        return { headers: result.headers, rows: filterMeta(result.rows, scope), sheetTitle: title, gid };
-      },
-    });
+    try {
+      const metaInfo = metaTitlesByKey.get(key);
+      if (!metaInfo) throw new Error(`Nie znaleziono zakladki Meta o GID ${gid}.`);
+      const result = metaBatch.get(metaInfo.title);
+      if (!result) throw new Error(`Brak zakladki Meta: ${metaInfo.title}.`);
+      sources[key] = {
+        ok: true,
+        headers: result.headers,
+        rows: filterMeta(result.rows, scope),
+        sheetTitle: metaInfo.title,
+        gid,
+      };
+    } catch (error) { fail(key, error); }
   });
 
   Object.entries(CONFIG_SOURCES).forEach(([key, sheetName]) => {
-    jobs.push({
-      key,
-      run: async () => {
-        const result = await fetchSheetByName(IDS.config, sheetName, req);
-        return { headers: result.headers, rows: filterConfig(result.rows, scope, sheetName) };
-      },
-    });
-  });
-
-  const settled = await Promise.allSettled(jobs.map(job => job.run()));
-  const sources = {};
-  const errors = [];
-
-  settled.forEach((result, index) => {
-    const key = jobs[index].key;
-    if (result.status === 'fulfilled') {
-      sources[key] = { ok: true, ...result.value };
-    } else {
-      const message = result.reason && result.reason.message ? result.reason.message : String(result.reason);
-      sources[key] = { ok: false, headers: [], rows: [], error: message };
-      errors.push({ key, error: message });
-    }
+    try {
+      const result = configBatch.get(sheetName);
+      if (!result) throw new Error(`Brak zakladki Config: ${sheetName}.`);
+      sources[key] = { ok: true, headers: result.headers, rows: filterConfig(result.rows, scope, sheetName) };
+    } catch (error) { fail(key, error); }
   });
 
   return { sources, errors };
