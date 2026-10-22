@@ -16,7 +16,7 @@
   }
 
   async function loadOptions(force) {
-    if (!window.AUTH_CAN_ADD_ACCOUNT) return;
+    if (!window.AUTH_SHOW_ADD_ACCOUNT) return;
     if (state.loaded && !force) return;
     if (state.loading) return;
     state.loading = true;
@@ -29,7 +29,7 @@
       state.googleSources = payload.googleSources || [];
       state.metaSources = payload.metaSources || [];
       state.loaded = true;
-      updateAccountSourceOptions();
+      window.updateAccountSourceOptions();
     } finally {
       state.loading = false;
     }
@@ -68,7 +68,7 @@
   };
 
   window.openAccountModal = async function openAccountModal() {
-    if (!window.AUTH_CAN_ADD_ACCOUNT) return;
+    if (!window.AUTH_SHOW_ADD_ACCOUNT) return;
     const modal = document.getElementById('accountModal');
     if (!modal) return;
     feedback('Ładowanie konfiguracji…', false);
@@ -81,7 +81,16 @@
         if (!state.googleSources.length && state.metaSources.length) platform.value = 'Meta Ads';
         else platform.value = 'Google Ads';
       }
-      updateAccountSourceOptions();
+      window.updateAccountSourceOptions();
+      const saveBtn = document.getElementById('accountSaveBtn');
+      if (saveBtn) {
+        saveBtn.disabled = !window.AUTH_CAN_ADD_ACCOUNT;
+        saveBtn.title = window.AUTH_CAN_ADD_ACCOUNT ? '' : 'Tryb Podgląd jako — zapis jest wyłączony.';
+      }
+      const note = document.getElementById('accountModalNote');
+      if (!window.AUTH_CAN_ADD_ACCOUNT && note) {
+        note.textContent = 'Tryb Podgląd jako: widzisz formularz Specjalisty, ale zapis jest wyłączony. Zalogowany Specjalista może dodać konto normalnie.';
+      }
       setTimeout(() => document.getElementById('accountId') && document.getElementById('accountId').focus(), 0);
     } catch (error) {
       console.error('[Account self-service]', error);
@@ -95,12 +104,15 @@
     const form = document.getElementById('accountForm');
     if (form) form.reset();
     feedback('', false);
-    updateAccountSourceOptions();
+    window.updateAccountSourceOptions();
   };
 
   window.saveAccount = async function saveAccount(event) {
     event.preventDefault();
-    if (!window.AUTH_CAN_ADD_ACCOUNT) return;
+    if (!window.AUTH_CAN_ADD_ACCOUNT) {
+      feedback('Tryb Podgląd jako — zapis jest wyłączony. Zaloguj się jako Specjalista, aby dodać konto.', true);
+      return;
+    }
     const btn = document.getElementById('accountSaveBtn');
     const source = document.getElementById('accountSource');
     const platform = text(document.getElementById('accountPlatform').value);
@@ -145,7 +157,7 @@
 
   if (typeof waitForAuth === 'function') {
     waitForAuth().then(session => {
-      if (session && session.authenticated && window.AUTH_CAN_ADD_ACCOUNT) {
+      if (session && session.authenticated && window.AUTH_SHOW_ADD_ACCOUNT) {
         loadOptions(false).catch(error => console.warn('[Account self-service preload]', error));
       }
     });

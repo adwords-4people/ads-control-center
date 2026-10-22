@@ -149,12 +149,14 @@
 
       if (data && data.authenticated && data.user) {
         window.AUTH_SESSION = data;
-        const actualRole = data.actualUser ? String(data.actualUser.role || '').toLowerCase() : '';
+        const actualRole = data.actualUser ? String(data.actualUser.role || '').trim().toLowerCase() : '';
+        const effectiveRole = data.user ? String(data.user.role || '').trim().toLowerCase() : '';
         const actualIsAdmin = actualRole === 'admin';
         window.AUTH_CAN_ADMIN = Boolean(actualIsAdmin && !data.previewing);
         window.AUTH_CAN_ADD_ACCOUNT = Boolean(actualRole === 'specjalista' && !data.previewing);
+        window.AUTH_SHOW_ADD_ACCOUNT = Boolean(effectiveRole === 'specjalista');
         document.querySelectorAll('[data-admin-only]').forEach(el => { el.hidden = !window.AUTH_CAN_ADMIN; });
-        document.querySelectorAll('[data-specialist-only]').forEach(el => { el.hidden = !window.AUTH_CAN_ADD_ACCOUNT; });
+        document.querySelectorAll('[data-specialist-only]').forEach(el => { el.hidden = !window.AUTH_SHOW_ADD_ACCOUNT; });
         renderUserChip(data);
         overlay.remove();
         document.documentElement.classList.remove('auth-pending', 'auth-locked');
