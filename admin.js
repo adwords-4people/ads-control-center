@@ -1,5 +1,5 @@
 (function () {
-  const state = { overview: null, loading: false, editingEmail: '' };
+  const state = { overview: null, loading: false, editingEmail: '', assigningAccount: null };
 
   function esc(value) {
     return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -103,44 +103,130 @@
     });
   }
 
+  function setClientKpiLabels(labels) {
+    const pairs = [
+      ['adminKpiLabelAccounts', labels[0]],
+      ['adminKpiLabelGoogle', labels[1]],
+      ['adminKpiLabelMeta', labels[2]],
+      ['adminKpiLabelOwners', labels[3]],
+    ];
+    pairs.forEach(([id, value]) => { const el = document.getElementById(id); if (el) el.textContent = value; });
+  }
+
+  function metricToneClass(tone) {
+    return tone === 'red' ? 'metric-red' : tone === 'amber' ? 'metric-amber' : tone === 'green' ? 'metric-green' : 'metric-gray';
+  }
+  function pctText(value, signed) {
+    if (value == null || !Number.isFinite(Number(value))) return '\u2014';
+    const n = Number(value);
+    return (signed && n > 0 ? '+' : '') + fmtNumber(n, 1) + '%';
+  }
+  function healthMetric(value, tone, formatter) {
+    if (value == null || !Number.isFinite(Number(value))) return '<span class="metric-empty">\u2014</span>';
+    const display = formatter ? formatter(Number(value)) : fmtNumber(Number(value), 1);
+    return `<span class="manager-metric ${metricToneClass(tone)}">${esc(display)}</span>`;
+  }
+  function priorityMarkup(health) {
+    const priority = health && health.priority || 'ok';
+    const labels = { intervention: 'Interwencja', check: 'Sprawd\u017a', ok: 'OK', inactive: 'Nieaktywne' };
+    const reasons = (health && health.reasons || []).slice(0, 3);
+    return `<span class="manager-priority ${esc(priority)}">${esc(labels[priority] || priority)}</span>` +
+      (reasons.length ? `<small class="manager-health-sub">${esc(reasons.join(' \u00b7 '))}</small>` : '');
+  }
+
   window.renderAdminClients = function renderAdminClients() {
-    if (!window.AUTH_CAN_ADMIN) return;
+    if (!window.AUTH_CAN_CLIENTS) return;
     const body = document.getElementById('adminClientsBody');
+    const head = document.getElementById('adminClientsHead');
+    const note = document.getElementById('adminClientsNote');
     if (!body) return;
     if (!state.overview) {
-      body.innerHTML = '<tr><td colspan="5" class="admin-loading">Ładowanie…</td></tr>';
+      body.innerHTML = '<tr><td colspan="9" class="admin-loading">\u0141adowanie\u2026</td></tr>';
       return;
     }
 
+    const managerMode = state.overview.viewMode === 'team';
     const q = lower(document.getElementById('searchInput') && document.getElementById('searchInput').value);
     const platform = text(document.getElementById('adminClientPlatform') && document.getElementById('adminClientPlatform').value);
     const all = state.overview.accounts || [];
-    const rows = all.filter(row => {
+    let rows = all.filter(row => {
       if (platform && row.platform !== platform) return false;
       if (!q) return true;
       return [row.name, row.accountId, row.ownerName, row.ownerEmail, row.type, row.platform].some(value => lower(value).includes(q));
-    }).sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, 'pl'));
+    });
+
+    if (managerMode) {
+      rows = rows.sort((a, b) => Number(a.health && a.health.priorityRank != null ? a.health.priorityRank : 9) - Number(b.health && b.health.priorityRank != null ? b.health.priorityRank : 9)
+        || (a.ownerName || a.ownerEmail || '').localeCompare(b.ownerName || b.ownerEmail || '', 'pl')
+        || a.name.localeCompare(b.name, 'pl'));
+    } else {
+      rows = rows.sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, 'pl'));
+    }
 
     if (typeof PAGE_COUNTS !== 'undefined') PAGE_COUNTS.clients = { shown: rows.length, total: all.length };
     if (typeof updateResultsCountDisplay === 'function') updateResultsCountDisplay();
 
+    if (managerMode) {
+      if (head) head.innerHTML = '<tr><th>Klient / konto</th><th>Platforma</th><th>Opiekun</th><th>Bud\u017cet</th><th>Wynik</th><th>Trend wy\u015b.</th><th>Anomalia d/d</th><th>ROAS / CPA</th><th>Priorytet</th></tr>';
+      if (note) note.textContent = `Widok Teamu ${state.overview.team || ''}. Konta wymagaj\u0105ce interwencji s\u0105 automatycznie przenoszone na g\u00f3r\u0119.`;
+      body.innerHTML = rows.length ? rows.map(row => {
+        const platformClass = row.platform === 'Meta Ads' ? 'meta' : 'google';
+        const owner = row.ownerName || row.ownerEmail || '\u2014';
+        const h = row.health || { metrics: {}, tones: {}, priority: 'ok', reasons: [] };
+        const m = h.metrics || {};
+        const tones = h.tones || {};
+        const resultMain = healthMetric(m.result, tones.result, value => fmtNumber(value, 1));
+        const resultSub = m.resultRatio == null ? '' : `<small class="manager-health-sub">vs poprz. ${esc(pctText(m.resultRatio, false))}</small>`;
+        let efficiency = '<span class="metric-empty">\u2014</span>';
+        if (lower(row.type) === 'sklep' && m.roas != null) efficiency = healthMetric(m.roas, tones.roas, value => `ROAS ${fmtNumber(value, 0)}%`);
+        else if (m.cpa != null) efficiency = healthMetric(m.cpa, 'gray', value => `CPA ${fmtMoney(value)}`);
+        return `<tr${row.active ? '' : ' class="admin-inactive-row"'}>
+          <td><strong>${esc(row.name || row.accountId)}</strong><small class="admin-cell-sub">${esc(row.accountId)}</small></td>
+          <td><span class="note-platforma-badge ${platformClass}">${esc(row.platform)}</span></td>
+          <td>${esc(owner)}</td>
+          <td>${healthMetric(m.budgetPct, tones.budget, value => pctText(value, false))}<small class="admin-cell-sub">Bud\u017cet: ${esc(fmtMoney(num(row.budget)))}</small></td>
+          <td class="manager-health-cell">${resultMain}${resultSub}</td>
+          <td>${healthMetric(m.trend, tones.trend, value => pctText(value, true))}</td>
+          <td>${healthMetric(m.anomaly, tones.anomaly, value => pctText(value, true))}</td>
+          <td>${efficiency}</td>
+          <td class="manager-health-cell">${priorityMarkup(h)}</td>
+        </tr>`;
+      }).join('') : '<tr><td colspan="9" class="admin-loading">Brak pasuj\u0105cych kont.</td></tr>';
+
+      const active = all.filter(row => row.active);
+      const intervention = active.filter(row => row.health && row.health.priority === 'intervention').length;
+      const check = active.filter(row => row.health && row.health.priority === 'check').length;
+      const ok = active.filter(row => row.health && row.health.priority === 'ok').length;
+      setClientKpiLabels(['Wymaga interwencji', 'Do sprawdzenia', 'OK', 'Aktywne konta']);
+      document.getElementById('adminKpiAccounts').textContent = fmtNumber(intervention);
+      document.getElementById('adminKpiGoogleAccounts').textContent = fmtNumber(check);
+      document.getElementById('adminKpiMetaAccounts').textContent = fmtNumber(ok);
+      document.getElementById('adminKpiOwners').textContent = fmtNumber(active.length);
+      return;
+    }
+
+    if (head) head.innerHTML = '<tr><th>Klient / konto</th><th>Platforma</th><th>Opiekun</th><th>Typ</th><th>Bud\u017cet</th><th>Akcje</th></tr>';
+    if (note) note.textContent = 'Widok zarz\u0105dczy Admina. Wszystkie konta Google Ads i Meta Ads.';
     body.innerHTML = rows.length ? rows.map(row => {
       const platformClass = row.platform === 'Meta Ads' ? 'meta' : 'google';
-      const owner = row.ownerName || row.ownerEmail || '—';
+      const owner = row.ownerName || row.ownerEmail || '\u2014';
       const budget = num(row.budget);
+      const canAssign = Boolean(window.AUTH_CAN_ADMIN && state.overview.canAssignAccounts);
       return `<tr${row.active ? '' : ' class="admin-inactive-row"'}>
         <td><strong>${esc(row.name || row.accountId)}</strong><small class="admin-cell-sub">${esc(row.accountId)}</small></td>
         <td><span class="note-platforma-badge ${platformClass}">${esc(row.platform)}</span></td>
         <td>${esc(owner)}${row.ownerEmail && row.ownerName ? `<small class="admin-cell-sub">${esc(row.ownerEmail)}</small>` : ''}</td>
-        <td>${esc(row.type || '—')}</td>
+        <td>${esc(row.type || '\u2014')}</td>
         <td class="mono">${fmtMoney(budget)}</td>
+        <td class="admin-actions">${canAssign ? `<button type="button" class="admin-link-btn" onclick="openAccountAssignment('${esc(row.platform)}','${esc(row.accountId)}')">Przypisz</button>` : '\u2014'}</td>
       </tr>`;
-    }).join('') : '<tr><td colspan="5" class="admin-loading">Brak pasujących kont.</td></tr>';
+    }).join('') : '<tr><td colspan="6" class="admin-loading">Brak pasuj\u0105cych kont.</td></tr>';
 
     const active = all.filter(row => row.active);
     const googleCount = active.filter(row => row.platform === 'Google Ads').length;
     const metaCount = active.filter(row => row.platform === 'Meta Ads').length;
     const owners = new Set(active.map(row => lower(row.ownerEmail || row.ownerName)).filter(Boolean));
+    setClientKpiLabels(['Aktywne konta', 'Google Ads', 'Meta Ads', 'Aktywni opiekunowie']);
     document.getElementById('adminKpiAccounts').textContent = fmtNumber(active.length);
     document.getElementById('adminKpiGoogleAccounts').textContent = fmtNumber(googleCount);
     document.getElementById('adminKpiMetaAccounts').textContent = fmtNumber(metaCount);
@@ -181,6 +267,7 @@
   }
 
   function renderEmployees() {
+    if (!window.AUTH_CAN_ADMIN) return;
     const body = document.getElementById('adminEmployeesBody');
     if (!body || !state.overview) return;
     const actualEmail = lower(window.AUTH_SESSION && window.AUTH_SESSION.actualUser && window.AUTH_SESSION.actualUser.email);
@@ -202,13 +289,12 @@
   }
 
   function renderAllAdmin() {
-    renderEmployees();
-    renderSystemStatus();
+    if (window.AUTH_CAN_ADMIN) { renderEmployees(); renderSystemStatus(); }
     window.renderAdminClients();
   }
 
   window.loadAdminOverview = async function loadAdminOverview(force) {
-    if (!window.AUTH_CAN_ADMIN || state.loading) return;
+    if (!window.AUTH_CAN_CLIENTS || state.loading) return;
     if (state.overview && !force) { renderAllAdmin(); return; }
     state.loading = true;
     try {
@@ -223,10 +309,121 @@
       const clients = document.getElementById('adminClientsBody');
       const employees = document.getElementById('adminEmployeesBody');
       if (system) system.innerHTML = `<div class="admin-error">${esc(error.message)}</div>`;
-      if (clients) clients.innerHTML = `<tr><td colspan="5" class="admin-error">${esc(error.message)}</td></tr>`;
+      if (clients) clients.innerHTML = `<tr><td colspan="9" class="admin-error">${esc(error.message)}</td></tr>`;
       if (employees) employees.innerHTML = `<tr><td colspan="6" class="admin-error">${esc(error.message)}</td></tr>`;
     } finally {
       state.loading = false;
+    }
+  };
+
+  function activeUsers() {
+    return ((state.overview && state.overview.users) || [])
+      .filter(user => user.active)
+      .slice()
+      .sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email, 'pl'));
+  }
+
+  function updateAssignmentMckOptions() {
+    const account = state.assigningAccount;
+    const wrap = document.getElementById('assignmentMckWrap');
+    const select = document.getElementById('assignmentMck');
+    const note = document.getElementById('assignmentModalNote');
+    const targetEmail = lower(document.getElementById('assignmentUser') && document.getElementById('assignmentUser').value);
+    if (!account || !wrap || !select) return;
+
+    if (account.platform !== 'Google Ads') {
+      wrap.hidden = true;
+      select.required = false;
+      if (note) note.textContent = 'Meta Ads: zmienimy opiekuna konta. Business Manager pozostaje bez zmian.';
+      return;
+    }
+
+    wrap.hidden = false;
+    select.required = true;
+    const mcks = ((state.overview && state.overview.mcks) || []).filter(item => lower(item.ownerEmail) === targetEmail);
+    if (!mcks.length) {
+      select.innerHTML = '<option value="">Brak aktywnego MCK tego pracownika</option>';
+      select.disabled = true;
+      if (note) note.textContent = 'Ten pracownik nie ma aktywnego MCK. Najpierw przypisz mu MCK w konfiguracji.';
+      return;
+    }
+    select.disabled = false;
+    select.innerHTML = mcks.map(item => {
+      const suffix = item.externalId ? ` · ${item.externalId}` : '';
+      const selected = item.id === account.sourceId ? ' selected' : '';
+      return `<option value="${esc(item.id)}"${selected}>${esc(item.name || item.id)}${esc(suffix)}</option>`;
+    }).join('');
+    if (note) note.textContent = mcks.length > 1
+      ? 'Google Ads: wybierz MCK nowego opiekuna, pod którym konto ma być synchronizowane.'
+      : 'Google Ads: konto zostanie przeniesione na MCK nowego opiekuna.';
+  }
+
+  window.openAccountAssignment = function openAccountAssignment(platform, accountId) {
+    if (!window.AUTH_CAN_ADMIN || !state.overview) return;
+    const account = (state.overview.accounts || []).find(row => row.platform === platform && normId(row.accountId) === normId(accountId));
+    if (!account) return;
+    state.assigningAccount = account;
+
+    const modal = document.getElementById('accountAssignModal');
+    const userSelect = document.getElementById('assignmentUser');
+    const feedback = document.getElementById('assignmentModalFeedback');
+    const title = document.getElementById('assignmentAccountTitle');
+    if (!modal || !userSelect) return;
+
+    if (title) title.textContent = `${account.name || account.accountId} · ${account.platform}`;
+    userSelect.innerHTML = activeUsers().map(user => {
+      const selected = lower(user.email) === lower(account.ownerEmail) ? ' selected' : '';
+      const role = user.role ? ` · ${user.role}` : '';
+      return `<option value="${esc(user.email)}"${selected}>${esc(user.name || user.email)}${esc(role)}</option>`;
+    }).join('');
+    if (feedback) { feedback.textContent = ''; feedback.className = 'admin-modal-feedback'; }
+    modal.hidden = false;
+    updateAssignmentMckOptions();
+  };
+
+  window.updateAssignmentMckOptions = updateAssignmentMckOptions;
+
+  window.closeAccountAssignment = function closeAccountAssignment() {
+    const modal = document.getElementById('accountAssignModal');
+    if (modal) modal.hidden = true;
+    state.assigningAccount = null;
+  };
+
+  window.saveAccountAssignment = async function saveAccountAssignment(event) {
+    event.preventDefault();
+    const account = state.assigningAccount;
+    if (!account || !window.AUTH_CAN_ADMIN) return;
+    const btn = document.getElementById('assignmentSaveBtn');
+    const feedback = document.getElementById('assignmentModalFeedback');
+    const targetEmail = text(document.getElementById('assignmentUser').value);
+    const mckSelect = document.getElementById('assignmentMck');
+    const sourceId = account.platform === 'Google Ads' && mckSelect && !mckSelect.disabled ? text(mckSelect.value) : '';
+    if (account.platform === 'Google Ads' && !sourceId) {
+      feedback.textContent = 'Wybierz MCK nowego opiekuna.';
+      feedback.className = 'admin-modal-feedback err';
+      return;
+    }
+
+    btn.disabled = true;
+    feedback.textContent = 'Przenoszenie konta…';
+    feedback.className = 'admin-modal-feedback';
+    try {
+      const response = await fetch('/api/admin/accounts', {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform: account.platform, accountId: account.accountId, targetEmail, sourceId }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) throw new Error(result.message || result.error || `HTTP ${response.status}`);
+      window.closeAccountAssignment();
+      state.overview = null;
+      await window.loadAdminOverview(true);
+      if (typeof showToast === 'function') showToast('Konto przypisane do nowego opiekuna.', 'ok');
+    } catch (error) {
+      feedback.textContent = error.message;
+      feedback.className = 'admin-modal-feedback err';
+    } finally {
+      btn.disabled = false;
     }
   };
 
@@ -307,18 +504,18 @@
   };
 
   document.addEventListener('ppc:data-loaded', () => {
-    if (window.AUTH_CAN_ADMIN) window.renderAdminClients();
+    if (window.AUTH_CAN_CLIENTS) window.renderAdminClients();
   });
 
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && document.getElementById('employeeModal') && !document.getElementById('employeeModal').hidden) {
-      window.closeEmployeeModal();
-    }
+    if (event.key !== 'Escape') return;
+    if (document.getElementById('employeeModal') && !document.getElementById('employeeModal').hidden) window.closeEmployeeModal();
+    if (document.getElementById('accountAssignModal') && !document.getElementById('accountAssignModal').hidden) window.closeAccountAssignment();
   });
 
   if (typeof waitForAuth === 'function') {
     waitForAuth().then(session => {
-      if (session && session.authenticated && window.AUTH_CAN_ADMIN) window.loadAdminOverview();
+      if (session && session.authenticated && window.AUTH_CAN_CLIENTS) window.loadAdminOverview();
     });
   }
 })();

@@ -6,7 +6,7 @@
 <title>PPC - Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=1.5">
+<link rel="stylesheet" href="styles.css?v=1.7">
 <link rel="stylesheet" href="auth.css">
 <script>document.documentElement.classList.add('auth-pending')</script>
 </head>
@@ -86,8 +86,8 @@
       Anomalia
     </button>
 
-    <div class="nav-label" style="margin-top:22px" data-admin-only hidden>Admin</div>
-    <button class="nav-item nav-admin" data-admin-only hidden onclick="showPage('clients',this)">
+    <div class="nav-label" style="margin-top:22px" data-clients-access hidden>Admin</div>
+    <button class="nav-item nav-admin" data-clients-access hidden onclick="showPage('clients',this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       Klienci
     </button>
@@ -232,20 +232,20 @@
       <table><thead id="metaAnomaliaHead"></thead><tbody id="metaAnomaliaBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
     </div></div></div>
 
-    <div class="page admin-page" id="page-clients" data-admin-only hidden>
+    <div class="page admin-page" id="page-clients" data-clients-access hidden>
       <div class="admin-kpi-grid" id="adminClientKpis">
-        <div class="admin-kpi-card"><span>Aktywne konta</span><strong id="adminKpiAccounts">—</strong></div>
-        <div class="admin-kpi-card"><span>Google Ads</span><strong id="adminKpiGoogleAccounts">—</strong></div>
-        <div class="admin-kpi-card"><span>Meta Ads</span><strong id="adminKpiMetaAccounts">—</strong></div>
-        <div class="admin-kpi-card"><span>Aktywni opiekunowie</span><strong id="adminKpiOwners">—</strong></div>
+        <div class="admin-kpi-card"><span id="adminKpiLabelAccounts">Aktywne konta</span><strong id="adminKpiAccounts">—</strong></div>
+        <div class="admin-kpi-card"><span id="adminKpiLabelGoogle">Google Ads</span><strong id="adminKpiGoogleAccounts">—</strong></div>
+        <div class="admin-kpi-card"><span id="adminKpiLabelMeta">Meta Ads</span><strong id="adminKpiMetaAccounts">—</strong></div>
+        <div class="admin-kpi-card"><span id="adminKpiLabelOwners">Aktywni opiekunowie</span><strong id="adminKpiOwners">—</strong></div>
       </div>
       <div class="section">
         <div class="section-header admin-section-header">
-          <div><span class="section-title">Klienci / konta</span><div class="admin-section-note">Widok zarządczy Admina. Google i Meta są pokazane osobno, bez sztucznego łączenia kont po nazwie.</div></div>
+          <div><span class="section-title">Klienci / konta</span><div class="admin-section-note" id="adminClientsNote">Widok zarządczy klientów i kont.</div></div>
           <select id="adminClientPlatform" class="admin-filter" onchange="renderAdminClients()"><option value="">Wszystkie platformy</option><option value="Google Ads">Google Ads</option><option value="Meta Ads">Meta Ads</option></select>
         </div>
         <div class="table-wrap">
-          <table class="admin-table"><thead><tr><th>Klient / konto</th><th>Platforma</th><th>Opiekun</th><th>Typ</th><th>Budżet</th><th>Akcje</th></tr></thead><tbody id="adminClientsBody"><tr><td colspan="6" class="admin-loading">Ładowanie…</td></tr></tbody></table>
+          <table class="admin-table manager-clients-table"><thead id="adminClientsHead"><tr><th>Klient / konto</th><th>Platforma</th><th>Opiekun</th><th>Typ</th><th>Budżet</th><th>Akcje</th></tr></thead><tbody id="adminClientsBody"><tr><td colspan="6" class="admin-loading">Ładowanie…</td></tr></tbody></table>
         </div>
       </div>
     </div>
@@ -401,9 +401,9 @@
 
 <script src="data.js"></script>
 <script src="notes.js"></script>
-<script src="auth.js?v=1.6"></script>
+<script src="auth.js?v=1.7"></script>
 <script src="accounts.js?v=1.6"></script>
-<script src="admin.js"></script>
-<script src="dashboard.js"></script>
+<script src="admin.js?v=1.7"></script>
+<script src="dashboard.js?v=1.7"></script>
 </body>
 </html>

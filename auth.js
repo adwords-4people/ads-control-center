@@ -153,10 +153,12 @@
         const effectiveRole = data.user ? String(data.user.role || '').trim().toLowerCase() : '';
         const actualIsAdmin = actualRole === 'admin';
         window.AUTH_CAN_ADMIN = Boolean(actualIsAdmin && !data.previewing);
+        window.AUTH_CAN_CLIENTS = Boolean(effectiveRole === 'admin' || effectiveRole === 'manager');
         const accountAddRoles = new Set(['admin', 'manager', 'specjalista']);
         window.AUTH_CAN_ADD_ACCOUNT = Boolean(accountAddRoles.has(actualRole) && !data.previewing);
         window.AUTH_SHOW_ADD_ACCOUNT = Boolean(accountAddRoles.has(effectiveRole));
         document.querySelectorAll('[data-admin-only]').forEach(el => { el.hidden = !window.AUTH_CAN_ADMIN; });
+        document.querySelectorAll('[data-clients-access]').forEach(el => { el.hidden = !window.AUTH_CAN_CLIENTS; });
         document.querySelectorAll('[data-specialist-only]').forEach(el => { el.hidden = !window.AUTH_SHOW_ADD_ACCOUNT; });
         renderUserChip(data);
         overlay.remove();

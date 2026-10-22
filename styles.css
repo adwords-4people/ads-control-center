@@ -943,7 +943,7 @@ body.is-resizing-column *{cursor:col-resize !important;user-select:none !importa
 .admin-modal-feedback{min-height:18px;font-size:11px;color:var(--muted);margin-top:12px}.admin-modal-feedback.err{color:var(--red)}
 @media(max-width:1150px){.admin-grid{grid-template-columns:1fr}.admin-kpi-grid{grid-template-columns:repeat(2,minmax(150px,1fr))}}
 @media(max-width:760px){.admin-kpi-grid,.admin-form-grid{grid-template-columns:1fr}.admin-modal{padding:18px}}
-.admin-modal-overlay[hidden], [data-admin-only][hidden], [data-specialist-only][hidden]{display:none!important}
+.admin-modal-overlay[hidden], [data-admin-only][hidden], [data-clients-access][hidden], [data-specialist-only][hidden]{display:none!important}
 
 .account-form-full{grid-column:1 / -1}
 .account-modal-note{margin-top:12px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);font-size:11px;line-height:1.5;color:var(--muted)}
@@ -961,3 +961,19 @@ body.is-resizing-column *{cursor:col-resize !important;user-select:none !importa
 .specialist-add-account-top svg{width:15px;height:15px;flex:0 0 15px}
 .specialist-add-account-top[hidden]{display:none!important}
 @media(max-width:980px){.specialist-add-account-top{padding:0 9px;font-size:0}.specialist-add-account-top svg{width:17px;height:17px}}
+
+.manager-health-cell{min-width:118px}
+.manager-health-main{font-weight:700;font-size:12px;white-space:nowrap}
+.manager-health-sub{display:block;font-size:9px;color:var(--muted);margin-top:3px;white-space:normal;max-width:260px;line-height:1.35}
+.manager-priority{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;padding:4px 8px;border-radius:999px;white-space:nowrap}
+.manager-priority.ok{background:var(--green-bg);color:var(--green-dark)}
+.manager-priority.check{background:var(--amber-bg);color:var(--amber-dark)}
+.manager-priority.intervention{background:var(--red-bg);color:var(--red)}
+.manager-priority.inactive{background:var(--bg3);color:var(--muted)}
+.manager-metric{font-weight:700;font-size:11px;white-space:nowrap}
+.manager-clients-table td{vertical-align:top}
+.manager-clients-table .metric-red{color:var(--red)}
+.manager-clients-table .metric-amber{color:var(--amber-dark)}
+.manager-clients-table .metric-green{color:var(--green-dark)}
+.manager-clients-table .metric-gray{color:var(--text)}
+@media(max-width:1200px){.manager-clients-table{min-width:1180px}}

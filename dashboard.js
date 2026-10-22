@@ -1416,8 +1416,8 @@ const PAGE_SUBTITLES = Object.freeze({
 
 function canonicalPageName(name) {
   const target = name === 'metaWyniki' ? 'metaMiesieczny' : name;
-  const adminOnly = target === 'clients' || target === 'admin';
-  if (adminOnly && !window.AUTH_CAN_ADMIN) return 'overview';
+  if (target === 'clients' && !window.AUTH_CAN_CLIENTS) return 'overview';
+  if (target === 'admin' && !window.AUTH_CAN_ADMIN) return 'overview';
   return Object.prototype.hasOwnProperty.call(PAGE_TITLES, target) && document.getElementById('page-' + target)
     ? target : 'overview';
 }
