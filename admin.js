@@ -108,13 +108,13 @@
     const body = document.getElementById('adminClientsBody');
     if (!body) return;
     if (!state.overview) {
-      body.innerHTML = '<tr><td colspan="10" class="admin-loading">Ładowanie…</td></tr>';
+      body.innerHTML = '<tr><td colspan="5" class="admin-loading">Ładowanie…</td></tr>';
       return;
     }
 
     const q = lower(document.getElementById('searchInput') && document.getElementById('searchInput').value);
     const platform = text(document.getElementById('adminClientPlatform') && document.getElementById('adminClientPlatform').value);
-    const all = clientRows();
+    const all = state.overview.accounts || [];
     const rows = all.filter(row => {
       if (platform && row.platform !== platform) return false;
       if (!q) return true;
@@ -125,7 +125,6 @@
     if (typeof updateResultsCountDisplay === 'function') updateResultsCountDisplay();
 
     body.innerHTML = rows.length ? rows.map(row => {
-      const m = row.metrics;
       const platformClass = row.platform === 'Meta Ads' ? 'meta' : 'google';
       const owner = row.ownerName || row.ownerEmail || '—';
       const budget = num(row.budget);
@@ -135,22 +134,17 @@
         <td>${esc(owner)}${row.ownerEmail && row.ownerName ? `<small class="admin-cell-sub">${esc(row.ownerEmail)}</small>` : ''}</td>
         <td>${esc(row.type || '—')}</td>
         <td class="mono">${fmtMoney(budget)}</td>
-        <td class="mono">${fmtMoney(m.spend)}</td>
-        <td class="mono">${fmtMoney(m.forecast)}</td>
-        <td class="mono">${fmtNumber(m.result, 1)}</td>
-        <td class="mono">${m.roas == null ? '—' : fmtNumber(m.roas, 2)}</td>
-        <td><span class="badge ${row.budgetState.cls}">${esc(row.budgetState.label)}</span></td>
       </tr>`;
-    }).join('') : '<tr><td colspan="10" class="admin-loading">Brak pasujących kont.</td></tr>';
+    }).join('') : '<tr><td colspan="5" class="admin-loading">Brak pasujących kont.</td></tr>';
 
     const active = all.filter(row => row.active);
-    const googleSpend = active.filter(row => row.platform === 'Google Ads').reduce((sum, row) => sum + (row.metrics.spend || 0), 0);
-    const metaSpend = active.filter(row => row.platform === 'Meta Ads').reduce((sum, row) => sum + (row.metrics.spend || 0), 0);
-    const alerts = active.filter(row => row.budgetState.alert).length;
+    const googleCount = active.filter(row => row.platform === 'Google Ads').length;
+    const metaCount = active.filter(row => row.platform === 'Meta Ads').length;
+    const owners = new Set(active.map(row => lower(row.ownerEmail || row.ownerName)).filter(Boolean));
     document.getElementById('adminKpiAccounts').textContent = fmtNumber(active.length);
-    document.getElementById('adminKpiGoogleSpend').textContent = fmtMoney(googleSpend);
-    document.getElementById('adminKpiMetaSpend').textContent = fmtMoney(metaSpend);
-    document.getElementById('adminKpiAlerts').textContent = fmtNumber(alerts);
+    document.getElementById('adminKpiGoogleAccounts').textContent = fmtNumber(googleCount);
+    document.getElementById('adminKpiMetaAccounts').textContent = fmtNumber(metaCount);
+    document.getElementById('adminKpiOwners').textContent = fmtNumber(owners.size);
   };
 
   function statusSummary(group, platform) {
@@ -229,7 +223,7 @@
       const clients = document.getElementById('adminClientsBody');
       const employees = document.getElementById('adminEmployeesBody');
       if (system) system.innerHTML = `<div class="admin-error">${esc(error.message)}</div>`;
-      if (clients) clients.innerHTML = `<tr><td colspan="10" class="admin-error">${esc(error.message)}</td></tr>`;
+      if (clients) clients.innerHTML = `<tr><td colspan="5" class="admin-error">${esc(error.message)}</td></tr>`;
       if (employees) employees.innerHTML = `<tr><td colspan="6" class="admin-error">${esc(error.message)}</td></tr>`;
     } finally {
       state.loading = false;

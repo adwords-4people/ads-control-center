@@ -12,6 +12,10 @@ const {
 const CACHE_MS = 60 * 1000;
 let mappingCache = { at: 0, mcks: [], googleAccounts: [], metaAccounts: [] };
 
+function clearMappingsCache() {
+  mappingCache = { at: 0, mcks: [], googleAccounts: [], metaAccounts: [] };
+}
+
 function roleKey(value) {
   return String(value || '').trim().toLowerCase();
 }
@@ -108,4 +112,4 @@ async function getAccessScope(req) {
   };
 }
 
-module.exports = { getAccessScope, getAuthContext, isAdmin };
+module.exports = { clearMappingsCache, getAccessScope, getAuthContext, isAdmin };

@@ -149,9 +149,12 @@
 
       if (data && data.authenticated && data.user) {
         window.AUTH_SESSION = data;
-        const actualIsAdmin = data.actualUser && String(data.actualUser.role || '').toLowerCase() === 'admin';
+        const actualRole = data.actualUser ? String(data.actualUser.role || '').toLowerCase() : '';
+        const actualIsAdmin = actualRole === 'admin';
         window.AUTH_CAN_ADMIN = Boolean(actualIsAdmin && !data.previewing);
+        window.AUTH_CAN_ADD_ACCOUNT = Boolean(actualRole === 'specjalista' && !data.previewing);
         document.querySelectorAll('[data-admin-only]').forEach(el => { el.hidden = !window.AUTH_CAN_ADMIN; });
+        document.querySelectorAll('[data-specialist-only]').forEach(el => { el.hidden = !window.AUTH_CAN_ADD_ACCOUNT; });
         renderUserChip(data);
         overlay.remove();
         document.documentElement.classList.remove('auth-pending', 'auth-locked');

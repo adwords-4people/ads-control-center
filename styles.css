@@ -943,4 +943,9 @@ body.is-resizing-column *{cursor:col-resize !important;user-select:none !importa
 .admin-modal-feedback{min-height:18px;font-size:11px;color:var(--muted);margin-top:12px}.admin-modal-feedback.err{color:var(--red)}
 @media(max-width:1150px){.admin-grid{grid-template-columns:1fr}.admin-kpi-grid{grid-template-columns:repeat(2,minmax(150px,1fr))}}
 @media(max-width:760px){.admin-kpi-grid,.admin-form-grid{grid-template-columns:1fr}.admin-modal{padding:18px}}
-.admin-modal-overlay[hidden], [data-admin-only][hidden]{display:none!important}
+.admin-modal-overlay[hidden], [data-admin-only][hidden], [data-specialist-only][hidden]{display:none!important}
+
+.account-form-full{grid-column:1 / -1}
+.account-modal-note{margin-top:12px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);font-size:11px;line-height:1.5;color:var(--muted)}
+.nav-add-account{color:var(--navy)}
+@media(max-width:760px){.account-form-full{grid-column:auto}}
