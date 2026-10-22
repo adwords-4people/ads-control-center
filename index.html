@@ -127,7 +127,7 @@
     </div>
     <div class="header-filters" id="headerFilters">
       <span class="results-count" id="resultsCount"></span>
-      <button class="specialist-add-account-top" data-specialist-only hidden type="button" onclick="openAccountModal()" title="Dodaj konto reklamowe do swojego dashboardu">
+      <button class="specialist-add-account-top" data-specialist-only hidden type="button" onclick="openAccountModal()" title="Dodaj konto reklamowe do dashboardu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         Dodaj konto
       </button>
@@ -368,10 +368,11 @@
 
 <div class="admin-modal-overlay" id="accountModal" hidden>
   <div class="admin-modal account-modal" role="dialog" aria-modal="true" aria-labelledby="accountModalTitle">
-    <div class="admin-modal-head"><div><h2 id="accountModalTitle">Dodaj konto reklamowe</h2><p>Konto zostanie przypisane do Ciebie i aktywowane w konfiguracji.</p></div><button type="button" class="admin-modal-close" onclick="closeAccountModal()" aria-label="Zamknij">×</button></div>
+    <div class="admin-modal-head"><div><h2 id="accountModalTitle">Dodaj konto reklamowe</h2><p id="accountModalSubtitle">Konto zostanie aktywowane w konfiguracji i przypisane do wybranego opiekuna.</p></div><button type="button" class="admin-modal-close" onclick="closeAccountModal()" aria-label="Zamknij">×</button></div>
     <form id="accountForm" onsubmit="saveAccount(event)">
       <div class="admin-form-grid">
         <label><span>Platforma</span><select id="accountPlatform" required onchange="updateAccountSourceOptions()"><option value="Google Ads">Google Ads</option><option value="Meta Ads">Meta Ads</option></select></label>
+        <label><span>Opiekun</span><select id="accountOwner" required onchange="updateAccountSourceOptions()"></select></label>
         <label><span>ID konta reklamowego</span><input id="accountId" required autocomplete="off" inputmode="numeric" placeholder="np. 123-456-7890"></label>
         <label class="account-form-full"><span>Nazwa konta</span><input id="accountName" required autocomplete="off" placeholder="Dokładnie jak w Google Ads / Meta Ads"></label>
         <label><span>Typ</span><select id="accountType" required><option value="Lead">Lead</option><option value="Sklep">Sklep</option></select></label>
@@ -400,8 +401,8 @@
 
 <script src="data.js"></script>
 <script src="notes.js"></script>
-<script src="auth.js?v=1.5"></script>
-<script src="accounts.js?v=1.5"></script>
+<script src="auth.js?v=1.6"></script>
+<script src="accounts.js?v=1.6"></script>
 <script src="admin.js"></script>
 <script src="dashboard.js"></script>
 </body>

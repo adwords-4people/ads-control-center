@@ -1,5 +1,5 @@
 (function () {
-  const state = { loaded: false, loading: false, googleSources: [], metaSources: [] };
+  const state = { loaded: false, loading: false, owners: [], googleSourcesByOwner: {}, metaSources: [], role: '' };
 
   function text(value) { return String(value == null ? '' : value).trim(); }
   function esc(value) {
@@ -7,12 +7,37 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
+  function lower(value) { return text(value).toLowerCase(); }
 
   function feedback(message, error) {
     const el = document.getElementById('accountModalFeedback');
     if (!el) return;
     el.textContent = message || '';
     el.className = 'admin-modal-feedback' + (error ? ' err' : '');
+  }
+
+  function selectedOwnerEmail() {
+    const select = document.getElementById('accountOwner');
+    return text(select && select.value);
+  }
+
+  function renderOwnerOptions() {
+    const select = document.getElementById('accountOwner');
+    if (!select) return;
+    const owners = state.owners || [];
+    select.innerHTML = owners.map(owner => {
+      const role = owner.role ? ` · ${owner.role}` : '';
+      return `<option value="${esc(owner.email)}">${esc(owner.name || owner.email)}${esc(role)}</option>`;
+    }).join('');
+    select.disabled = owners.length <= 1;
+    select.required = true;
+
+    const subtitle = document.getElementById('accountModalSubtitle');
+    if (subtitle) {
+      if (lower(state.role) === 'specjalista') subtitle.textContent = 'Konto zostanie przypisane do Ciebie i aktywowane w konfiguracji.';
+      else if (lower(state.role) === 'manager') subtitle.textContent = 'Konto możesz przypisać do siebie lub aktywnej osoby z Twojego Teamu.';
+      else subtitle.textContent = 'Konto możesz przypisać do dowolnego aktywnego pracownika.';
+    }
   }
 
   async function loadOptions(force) {
@@ -26,9 +51,12 @@
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ok) throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
-      state.googleSources = payload.googleSources || [];
+      state.owners = payload.owners || [];
+      state.googleSourcesByOwner = payload.googleSourcesByOwner || {};
       state.metaSources = payload.metaSources || [];
+      state.role = payload.role || '';
       state.loaded = true;
+      renderOwnerOptions();
       window.updateAccountSourceOptions();
     } finally {
       state.loading = false;
@@ -44,17 +72,18 @@
     if (!select || !label) return;
 
     const google = platform === 'Google Ads';
-    const options = google ? state.googleSources : state.metaSources;
-    label.textContent = google ? 'MCK' : 'Business Manager';
+    const ownerEmail = selectedOwnerEmail();
+    const options = google ? (state.googleSourcesByOwner[ownerEmail] || []) : state.metaSources;
+    label.textContent = google ? 'MCK opiekuna' : 'Business Manager';
     if (idInput) idInput.placeholder = google ? 'np. 123-456-7890' : 'np. act_123456789012345';
 
     if (!options.length) {
-      select.innerHTML = `<option value="">${google ? 'Brak przypisanego aktywnego MCK' : 'Brak aktywnego Business Managera'}</option>`;
+      select.innerHTML = `<option value="">${google ? 'Brak aktywnego MCK dla wybranego opiekuna' : 'Brak aktywnego Business Managera'}</option>`;
       select.disabled = true;
       select.required = false;
       if (note) note.textContent = google
-        ? 'Nie masz przypisanego aktywnego MCK. Poproś Admina o uzupełnienie konfiguracji.'
-        : 'Brak aktywnego Business Managera w konfiguracji. Poproś Admina o sprawdzenie ustawień Meta.';
+        ? 'Wybrany opiekun nie ma przypisanego aktywnego MCK. Admin musi najpierw uzupełnić konfigurację MCK.'
+        : 'Brak aktywnego Business Managera w konfiguracji.';
       return;
     }
 
@@ -76,11 +105,9 @@
     try {
       await loadOptions(false);
       feedback('', false);
+      renderOwnerOptions();
       const platform = document.getElementById('accountPlatform');
-      if (platform) {
-        if (!state.googleSources.length && state.metaSources.length) platform.value = 'Meta Ads';
-        else platform.value = 'Google Ads';
-      }
+      if (platform) platform.value = 'Google Ads';
       window.updateAccountSourceOptions();
       const saveBtn = document.getElementById('accountSaveBtn');
       if (saveBtn) {
@@ -89,11 +116,11 @@
       }
       const note = document.getElementById('accountModalNote');
       if (!window.AUTH_CAN_ADD_ACCOUNT && note) {
-        note.textContent = 'Tryb Podgląd jako: widzisz formularz Specjalisty, ale zapis jest wyłączony. Zalogowany Specjalista może dodać konto normalnie.';
+        note.textContent = 'Tryb Podgląd jako: formularz odzwierciedla uprawnienia wybranej roli, ale zapis jest wyłączony.';
       }
       setTimeout(() => document.getElementById('accountId') && document.getElementById('accountId').focus(), 0);
     } catch (error) {
-      console.error('[Account self-service]', error);
+      console.error('[Account add]', error);
       feedback(error.message, true);
     }
   };
@@ -104,20 +131,24 @@
     const form = document.getElementById('accountForm');
     if (form) form.reset();
     feedback('', false);
-    window.updateAccountSourceOptions();
   };
 
   window.saveAccount = async function saveAccount(event) {
     event.preventDefault();
     if (!window.AUTH_CAN_ADD_ACCOUNT) {
-      feedback('Tryb Podgląd jako — zapis jest wyłączony. Zaloguj się jako Specjalista, aby dodać konto.', true);
+      feedback('Tryb Podgląd jako — zapis jest wyłączony.', true);
       return;
     }
     const btn = document.getElementById('accountSaveBtn');
     const source = document.getElementById('accountSource');
     const platform = text(document.getElementById('accountPlatform').value);
+    const ownerEmail = selectedOwnerEmail();
+    if (!ownerEmail) {
+      feedback('Wybierz opiekuna konta.', true);
+      return;
+    }
     if (!source || source.disabled || !text(source.value)) {
-      feedback(platform === 'Google Ads' ? 'Brak aktywnego MCK do przypisania konta.' : 'Brak aktywnego Business Managera.', true);
+      feedback(platform === 'Google Ads' ? 'Wybrany opiekun nie ma aktywnego MCK.' : 'Brak aktywnego Business Managera.', true);
       return;
     }
 
@@ -132,6 +163,7 @@
         type: text(document.getElementById('accountType').value),
         budget: budgetRaw === '' ? '' : Number(budgetRaw),
         sourceId: text(source.value),
+        ownerEmail,
       };
       const response = await fetch('/api/accounts/self-service', {
         method: 'POST', cache: 'no-store', credentials: 'same-origin',
@@ -158,7 +190,7 @@
   if (typeof waitForAuth === 'function') {
     waitForAuth().then(session => {
       if (session && session.authenticated && window.AUTH_SHOW_ADD_ACCOUNT) {
-        loadOptions(false).catch(error => console.warn('[Account self-service preload]', error));
+        loadOptions(false).catch(error => console.warn('[Account add preload]', error));
       }
     });
   }
