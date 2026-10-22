@@ -1520,8 +1520,9 @@ window.addEventListener('hashchange', restorePageFromLocation);
 // ═══════════════════════════════════════════════════════
 //  DEBOUNCED HANDLERS
 // ═══════════════════════════════════════════════════════
-const _applyFiltersDebounced    = debounce(applyFilters,    180);
-const _renderNotesListDebounced = debounce(renderNotesList, 180);
+const _ppcDebounce = (typeof debounce === 'function') ? debounce : function(fn) { return fn; };
+const _applyFiltersDebounced    = _ppcDebounce(applyFilters,    180);
+const _renderNotesListDebounced = _ppcDebounce(renderNotesList, 180);
 
 document.addEventListener('DOMContentLoaded', () => {
   ensureColumnResetButton();
@@ -1564,12 +1565,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ═══════════════════════════════════════════════════════
-//  INIT — dane ładujemy dopiero po poprawnym logowaniu
+//  INIT przejmuje bootstrap.js (v1.7.3).
 // ═══════════════════════════════════════════════════════
-if (typeof waitForAuth === 'function') {
-  waitForAuth().then(session => {
-    if (session && session.authenticated) loadAllData();
-  });
-} else {
-  console.error('[Auth] auth.js nie został załadowany — pobieranie danych zablokowane.');
-}
+window.loadAllData = loadAllData;
+window.PPC_DASHBOARD_JS_VERSION = '1.7.3';
