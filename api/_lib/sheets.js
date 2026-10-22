@@ -12,7 +12,7 @@ const STS_URL = 'https://sts.googleapis.com/v1/token';
 const IAM_CREDENTIALS_API = 'https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts';
 const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets';
 const CLOUD_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
-const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const TOKEN_SAFETY_MS = 2 * 60 * 1000;
 const METADATA_CACHE_MS = 5 * 60 * 1000;
 
@@ -136,6 +136,27 @@ async function googleGet(url, req) {
   return payload;
 }
 
+async function googleWrite(url, req, method, body) {
+  const token = await getAccessToken(req);
+  const response = await fetch(url, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = payload && payload.error && payload.error.message
+      ? payload.error.message
+      : `HTTP ${response.status}`;
+    throw new Error(`Google Sheets API zapis: ${message}`);
+  }
+  return payload;
+}
+
 function escapeSheetTitle(title) {
   return String(title || '').replace(/'/g, "''");
 }
@@ -190,6 +211,21 @@ async function fetchSheetByGid(sheetId, gid, req) {
   return fetchSheetByName(sheetId, title, req);
 }
 
+async function setSheetRowValues(sheetId, sheetName, rowNumber, values, req) {
+  const safeTitle = escapeSheetTitle(sheetName);
+  const endCol = String.fromCharCode(64 + values.length);
+  const range = `'${safeTitle}'!A${rowNumber}:${endCol}${rowNumber}`;
+  const url = `${SHEETS_API}/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+  return googleWrite(url, req, 'PUT', { range, majorDimension: 'ROWS', values: [values] });
+}
+
+async function appendSheetValues(sheetId, sheetName, values, req) {
+  const safeTitle = escapeSheetTitle(sheetName);
+  const range = `'${safeTitle}'!A:ZZZ`;
+  const url = `${SHEETS_API}/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+  return googleWrite(url, req, 'POST', { majorDimension: 'ROWS', values: [values] });
+}
+
 function csvCell(value) {
   const text = String(value === undefined || value === null ? '' : value);
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
@@ -234,6 +270,7 @@ function oidcInfo() {
 
 module.exports = {
   IDS,
+  appendSheetValues,
   fetchSheetByGid,
   fetchSheetByName,
   getSheetMetadata,
@@ -243,5 +280,6 @@ module.exports = {
   normalizeMetaId,
   oidcInfo,
   serviceAccountEmail,
+  setSheetRowValues,
   stringifyCsv,
 };

@@ -818,6 +818,7 @@ async function loadAllData() {
 
     renderAll();
     renderNotesList();
+    document.dispatchEvent(new CustomEvent('ppc:data-loaded'));
   } catch (e) {
     if (e.name === 'AbortError') return;
     document.getElementById('lastUpdate').textContent = 'Błąd: ' + e.message;
@@ -922,6 +923,7 @@ function applyFilters() {
     metaWartoscKonwersji: renderMetaWartoscKonwersji,
     metaAnomalia:    renderMetaAnomalia,
     metaOverview:    renderMetaOverview,
+    clients:         (typeof renderAdminClients === 'function' ? renderAdminClients : function(){}),
   };
   if (activeId && activeId !== 'overview' && pageRenderers[activeId]) {
     pageRenderers[activeId]();
@@ -1388,7 +1390,7 @@ const PAGE_TITLES={
   overview:'Przegląd',wydatki:'Wydatki',audyt:'Audyt',audytWart:'Audyt - wart',
   wyniki:'Wyniki',wartKonw:'Wartość konwersji',anomalia:'Anomalia',
   metaOverview:'Meta — Przegląd',metaWydatki:'Meta — Wydatki',metaDzienny:'Meta — Dzienny',metaMiesieczny:'Meta — Wyniki',metaWartoscKonwersji:'Meta — Wartość konwersji',metaAudyt:'Meta — Audyt',metaAudytWart:'Meta — Audyt - wart',metaAnomalia:'Meta — Anomalia',
-  dziennik:'Dziennik zmian'
+  dziennik:'Dziennik zmian',clients:'Klienci',admin:'Administracja'
 };
 
 const PAGE_SUBTITLES = Object.freeze({
@@ -1407,11 +1409,15 @@ const PAGE_SUBTITLES = Object.freeze({
   metaAudyt:'Porównanie 30 dni do średniej miesięcznej z 90 dni',
   metaAudytWart:'Wartość konwersji i efektywność w ujęciu 30/90 dni',
   metaAnomalia:'Dzienne odchylenia wymagające uwagi',
-  dziennik:'Historia zmian i notatki operacyjne'
+  dziennik:'Historia zmian i notatki operacyjne',
+  clients:'Przekrojowy widok wszystkich klientów i kont',
+  admin:'Pracownicy, uprawnienia i stan synchronizacji'
 });
 
 function canonicalPageName(name) {
   const target = name === 'metaWyniki' ? 'metaMiesieczny' : name;
+  const adminOnly = target === 'clients' || target === 'admin';
+  if (adminOnly && !window.AUTH_CAN_ADMIN) return 'overview';
   return Object.prototype.hasOwnProperty.call(PAGE_TITLES, target) && document.getElementById('page-' + target)
     ? target : 'overview';
 }
@@ -1432,14 +1438,15 @@ function applyPageUI(name, btn) {
   const badge = document.getElementById('platformBadge');
   if (badge) {
     if (name.startsWith('meta')) { badge.textContent='Meta Ads'; badge.className='platform-badge meta'; }
-    else if (name==='dziennik')  { badge.textContent='';         badge.className='platform-badge'; }
-    else                          { badge.textContent='Google Ads'; badge.className='platform-badge google'; }
+    else if (name==='dziennik')  { badge.textContent=''; badge.className='platform-badge'; }
+    else if (name==='clients' || name==='admin') { badge.textContent='Admin'; badge.className='platform-badge tools'; }
+    else { badge.textContent='Google Ads'; badge.className='platform-badge google'; }
   }
 
   const hf = document.getElementById('headerFilters');
-  hf.style.display = name==='dziennik' ? 'none' : 'flex';
+  hf.style.display = (name==='dziennik' || name==='admin') ? 'none' : 'flex';
   const search = document.getElementById('searchInput');
-  const searchLabel = name.startsWith('meta') ? 'Szukaj konta lub zestawu…' : 'Szukaj konta…';
+  const searchLabel = name==='clients' ? 'Szukaj klienta lub opiekuna…' : (name.startsWith('meta') ? 'Szukaj konta lub zestawu…' : 'Szukaj konta…');
   search.placeholder = searchLabel;
   search.setAttribute('aria-label', searchLabel);
 
@@ -1448,11 +1455,11 @@ function applyPageUI(name, btn) {
   }
   renderMetaDataNotice();
   renderComparisonHelp();
-  if (name !== 'dziennik') applyFilters();
+  if (name !== 'dziennik' && name !== 'admin') applyFilters();
   updateResultsCountDisplay();
   enhanceStaticDashboardTables();
   updateColumnResetButton();
-  scheduleTableScrollControlsRefresh();
+  if (typeof scheduleTableScrollControlsRefresh === 'function') scheduleTableScrollControlsRefresh();
 }
 
 // Zmienia zakładkę i zapisuje ją w URL (#nazwa-zakładki), żeby dało się ją

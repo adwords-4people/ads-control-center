@@ -149,6 +149,9 @@
 
       if (data && data.authenticated && data.user) {
         window.AUTH_SESSION = data;
+        const actualIsAdmin = data.actualUser && String(data.actualUser.role || '').toLowerCase() === 'admin';
+        window.AUTH_CAN_ADMIN = Boolean(actualIsAdmin && !data.previewing);
+        document.querySelectorAll('[data-admin-only]').forEach(el => { el.hidden = !window.AUTH_CAN_ADMIN; });
         renderUserChip(data);
         overlay.remove();
         document.documentElement.classList.remove('auth-pending', 'auth-locked');

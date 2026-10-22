@@ -20,6 +20,8 @@ async function loadUsers(req) {
   return users;
 }
 
+function clearUsersCache() { cache = { at: 0, users: [] }; }
+
 async function getActiveUserByEmail(email, req) {
   const normalized = normalizeEmail(email);
   const users = await loadUsers(req);
@@ -28,4 +30,4 @@ async function getActiveUserByEmail(email, req) {
   return user;
 }
 
-module.exports = { getActiveUserByEmail, loadUsers };
+module.exports = { clearUsersCache, getActiveUserByEmail, loadUsers };

@@ -86,6 +86,16 @@
       Anomalia
     </button>
 
+    <div class="nav-label" style="margin-top:22px" data-admin-only hidden>Admin</div>
+    <button class="nav-item nav-admin" data-admin-only hidden onclick="showPage('clients',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Klienci
+    </button>
+    <button class="nav-item nav-admin" data-admin-only hidden onclick="showPage('admin',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.08A1.65 1.65 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.08A1.65 1.65 0 0 0 20.91 10H21a2 2 0 1 1 0 4h-.09A1.65 1.65 0 0 0 19.4 15z"/></svg>
+      Administracja
+    </button>
+
     <div class="nav-label" style="margin-top:22px">Narzędzia</div>
     <button class="nav-item nav-dziennik" onclick="showPage('dziennik',this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -214,6 +224,39 @@
       <table><thead id="metaAnomaliaHead"></thead><tbody id="metaAnomaliaBody"><tr><td style="text-align:center;color:var(--muted);padding:24px">Ładowanie danych...</td></tr></tbody></table>
     </div></div></div>
 
+    <div class="page admin-page" id="page-clients" data-admin-only hidden>
+      <div class="admin-kpi-grid" id="adminClientKpis">
+        <div class="admin-kpi-card"><span>Aktywne konta</span><strong id="adminKpiAccounts">—</strong></div>
+        <div class="admin-kpi-card"><span>Google Ads · koszt</span><strong id="adminKpiGoogleSpend">—</strong></div>
+        <div class="admin-kpi-card"><span>Meta Ads · koszt</span><strong id="adminKpiMetaSpend">—</strong></div>
+        <div class="admin-kpi-card"><span>Wymaga uwagi</span><strong id="adminKpiAlerts">—</strong></div>
+      </div>
+      <div class="section">
+        <div class="section-header admin-section-header">
+          <div><span class="section-title">Klienci / konta</span><div class="admin-section-note">Widok zarządczy Admina. Google i Meta są pokazane osobno, bez sztucznego łączenia kont po nazwie.</div></div>
+          <select id="adminClientPlatform" class="admin-filter" onchange="renderAdminClients()"><option value="">Wszystkie platformy</option><option value="Google Ads">Google Ads</option><option value="Meta Ads">Meta Ads</option></select>
+        </div>
+        <div class="table-wrap">
+          <table class="admin-table"><thead><tr><th>Klient / konto</th><th>Platforma</th><th>Opiekun</th><th>Typ</th><th>Budżet</th><th>Koszt · miesiąc</th><th>Prognoza kosztu</th><th>Wynik</th><th>ROAS</th><th>Status</th></tr></thead><tbody id="adminClientsBody"><tr><td colspan="10" class="admin-loading">Ładowanie…</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div class="page admin-page" id="page-admin" data-admin-only hidden>
+      <div class="admin-grid">
+        <section class="section admin-system-section">
+          <div class="section-header admin-section-header"><div><span class="section-title">Stan systemu</span><div class="admin-section-note">Ostatnie statusy automatycznych synchronizacji.</div></div><button class="admin-secondary-btn" type="button" onclick="loadAdminOverview(true)">Odśwież</button></div>
+          <div id="adminSystemStatus" class="admin-status-list"><div class="admin-loading">Ładowanie…</div></div>
+        </section>
+        <section class="section admin-employees-section">
+          <div class="section-header admin-section-header"><div><span class="section-title">Pracownicy</span><div class="admin-section-note">Usunięcie oznacza dezaktywację — historia zostaje zachowana.</div></div><button class="admin-primary-btn" type="button" onclick="openEmployeeModal()">+ Dodaj pracownika</button></div>
+          <div class="table-wrap">
+            <table class="admin-table"><thead><tr><th>Pracownik</th><th>Email</th><th>Rola</th><th>Team</th><th>Status</th><th>Akcje</th></tr></thead><tbody id="adminEmployeesBody"><tr><td colspan="6" class="admin-loading">Ładowanie…</td></tr></tbody></table>
+          </div>
+        </section>
+      </div>
+    </div>
+
     <div class="page" id="page-dziennik">
 
       <div class="webapp-banner" id="webappBanner" style="display:none">
@@ -284,6 +327,22 @@
 </div>
 </div>
 
+<div class="admin-modal-overlay" id="employeeModal" hidden>
+  <div class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="employeeModalTitle">
+    <div class="admin-modal-head"><div><h2 id="employeeModalTitle">Dodaj pracownika</h2><p>Dostęp do PPC Control Center</p></div><button type="button" class="admin-modal-close" onclick="closeEmployeeModal()" aria-label="Zamknij">×</button></div>
+    <form id="employeeForm" onsubmit="saveEmployee(event)">
+      <div class="admin-form-grid">
+        <label><span>Imię i nazwisko</span><input id="employeeName" required autocomplete="off"></label>
+        <label><span>Email 4people</span><input id="employeeEmail" type="email" required autocomplete="off" placeholder="imie.nazwisko@4people.pl"></label>
+        <label><span>Rola</span><select id="employeeRole" required><option value="Specjalista">Specjalista</option><option value="Manager">Manager</option><option value="Admin">Admin</option></select></label>
+        <label><span>Team</span><input id="employeeTeam" required value="PPC" autocomplete="off"></label>
+      </div>
+      <div class="admin-modal-feedback" id="employeeModalFeedback"></div>
+      <div class="admin-modal-actions"><button type="button" class="admin-secondary-btn" onclick="closeEmployeeModal()">Anuluj</button><button type="submit" class="admin-primary-btn" id="employeeSaveBtn">Zapisz</button></div>
+    </form>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <div class="confirm-overlay" id="confirmOverlay">
@@ -300,6 +359,7 @@
 <script src="data.js"></script>
 <script src="notes.js"></script>
 <script src="auth.js"></script>
+<script src="admin.js"></script>
 <script src="dashboard.js"></script>
 </body>
 </html>
