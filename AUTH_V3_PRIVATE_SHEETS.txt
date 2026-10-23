@@ -1,2 +1,0 @@
-Auth v3: Google Sheets are read server-side via Google Sheets API using a read-only service account.
-No public CSV fallback is used by api/_lib/sheets.js.
