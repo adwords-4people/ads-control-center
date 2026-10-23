@@ -266,6 +266,7 @@ function statusRows(batch, name) {
 
 module.exports = async function handler(req, res) {
   try {
+    if (req.method !== 'GET') return json(res, 405, { ok: false, error: 'method_not_allowed' });
     const context = await getAuthContext(req);
     if (!context) return json(res, 401, { ok: false, error: 'unauthenticated' });
     const effective = context.effectiveUser;

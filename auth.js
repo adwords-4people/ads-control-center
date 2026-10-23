@@ -1,197 +1,145 @@
-(function () {
-  let resolveAuth;
-  const ready = new Promise(resolve => { resolveAuth = resolve; });
+const crypto = require('crypto');
 
-  window.AUTH_SESSION = { authenticated: false, user: null };
-  window.waitForAuth = function waitForAuth() { return ready; };
+const SESSION_COOKIE = 'ppc_session';
+const STATE_COOKIE = 'ppc_oauth_state';
+const PREVIEW_COOKIE = 'ppc_preview';
+const SESSION_TTL_SECONDS = 8 * 60 * 60;
+const PREVIEW_TTL_SECONDS = 2 * 60 * 60;
 
-  function authMessageFromUrl() {
-    const code = new URLSearchParams(window.location.search).get('auth');
-    if (code === 'forbidden') return 'Twoje konto Google nie ma aktywnego dostępu do PPC Control Center.';
-    if (code === 'domain_denied') return 'Zaloguj się kontem Google Workspace w domenie 4people.pl.';
-    if (code === 'invalid_state') return 'Sesja logowania wygasła. Spróbuj zalogować się ponownie.';
-    if (code === 'oauth_error') return 'Logowanie Google nie powiodło się. Spróbuj ponownie.';
-    return '';
+function requireEnv(name) {
+  const value = process.env[name];
+  if (!value) throw new Error(`Brak wymaganej zmiennej środowiskowej ${name}.`);
+  return value;
+}
+
+function base64url(input) {
+  return Buffer.from(input).toString('base64url');
+}
+
+function sign(value) {
+  const secret = requireEnv('AUTH_SECRET');
+  return crypto.createHmac('sha256', secret).update(value).digest('base64url');
+}
+
+function safeEqual(a, b) {
+  const aa = Buffer.from(String(a || ''));
+  const bb = Buffer.from(String(b || ''));
+  return aa.length === bb.length && crypto.timingSafeEqual(aa, bb);
+}
+
+function createSignedPayload(payload, ttlSeconds) {
+  const now = Math.floor(Date.now() / 1000);
+  const encoded = base64url(JSON.stringify({ ...payload, iat: now, exp: now + ttlSeconds }));
+  return `${encoded}.${sign(encoded)}`;
+}
+
+function verifySignedPayload(token) {
+  if (!token || !token.includes('.')) return null;
+  const [encoded, signature] = token.split('.');
+  if (!encoded || !signature || !safeEqual(sign(encoded), signature)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+    const now = Math.floor(Date.now() / 1000);
+    if (!payload.exp || payload.exp <= now) return null;
+    return payload;
+  } catch (_) {
+    return null;
   }
+}
 
-  function cleanAuthQuery() {
-    const url = new URL(window.location.href);
-    if (!url.searchParams.has('auth')) return;
-    url.searchParams.delete('auth');
-    history.replaceState(history.state, '', url.pathname + (url.search ? url.search : '') + url.hash);
-  }
+function createSessionToken(user) {
+  return createSignedPayload({
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    team: user.team,
+  }, SESSION_TTL_SECONDS);
+}
 
-  function escapeHtml(value) {
-    return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  }
+function verifySessionToken(token) {
+  const payload = verifySignedPayload(token);
+  return payload && payload.email ? payload : null;
+}
 
-  function createOverlay() {
-    const overlay = document.createElement('div');
-    overlay.className = 'auth-overlay';
-    overlay.id = 'authOverlay';
-    overlay.innerHTML = `
-      <div class="auth-card" role="dialog" aria-labelledby="authTitle" aria-describedby="authDesc">
-        <div class="auth-brand">4people</div>
-        <h1 id="authTitle">PPC Control Center</h1>
-        <p id="authDesc" class="auth-desc">Dostęp do firmowego dashboardu reklamowego.</p>
-        <div class="auth-status" id="authStatus">Sprawdzam sesję…</div>
-        <a class="auth-google-btn" id="authLoginBtn" href="/api/auth/login" hidden>
-          <span class="auth-google-mark">G</span>Zaloguj przez Google Workspace
-        </a>
-        <p class="auth-foot">Dostęp tylko dla aktywnych użytkowników 4people.</p>
-      </div>`;
-    document.body.appendChild(overlay);
-    return overlay;
-  }
+function parseCookies(req) {
+  const raw = req.headers.cookie || '';
+  return raw.split(';').reduce((acc, part) => {
+    const idx = part.indexOf('=');
+    if (idx === -1) return acc;
+    const key = part.slice(0, idx).trim();
+    const value = part.slice(idx + 1).trim();
+    if (key) acc[key] = decodeURIComponent(value);
+    return acc;
+  }, {});
+}
 
-  function addPreviewBanner(session) {
-    if (!session.previewing) return;
-    const main = document.querySelector('.main');
-    if (!main || document.getElementById('authPreviewBanner')) return;
-    const banner = document.createElement('div');
-    banner.id = 'authPreviewBanner';
-    banner.className = 'auth-preview-banner';
-    banner.innerHTML = `Tryb testowy: widok <strong>${escapeHtml(session.user.name || session.user.email)}</strong> · ${escapeHtml(session.user.role || '')}${session.user.team ? ' · ' + escapeHtml(session.user.team) : ''}`;
-    main.prepend(banner);
-  }
+function cookie(name, value, options = {}) {
+  const parts = [`${name}=${encodeURIComponent(value)}`];
+  parts.push(`Path=${options.path || '/'}`);
+  if (options.maxAge !== undefined) parts.push(`Max-Age=${options.maxAge}`);
+  if (options.httpOnly !== false) parts.push('HttpOnly');
+  if (options.secure !== false) parts.push('Secure');
+  parts.push(`SameSite=${options.sameSite || 'Lax'}`);
+  return parts.join('; ');
+}
 
-  async function setPreview(email) {
-    const response = await fetch('/api/admin/preview', {
-      method: 'POST',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email || '' }),
-    });
-    if (!response.ok) throw new Error('Nie udało się zmienić widoku testowego.');
-    window.location.reload();
-  }
+function setSessionCookie(res, user) {
+  res.setHeader('Set-Cookie', cookie(SESSION_COOKIE, createSessionToken(user), {
+    maxAge: SESSION_TTL_SECONDS,
+  }));
+}
 
-  async function attachAdminPreview(select, session) {
-    try {
-      const response = await fetch('/api/admin/users', { cache: 'no-store', credentials: 'same-origin' });
-      if (!response.ok) return;
-      const payload = await response.json();
-      const users = payload.users || [];
-      const actualEmail = session.actualUser.email;
-      const own = document.createElement('option');
-      own.value = '';
-      own.textContent = `Własny widok — ${session.actualUser.name || session.actualUser.email} (Admin)`;
-      select.appendChild(own);
-      users.filter(u => u.email !== actualEmail).forEach(user => {
-        const option = document.createElement('option');
-        option.value = user.email;
-        option.textContent = `${user.name || user.email} — ${user.role}${user.team ? ' · ' + user.team : ''}`;
-        if (session.previewing && session.user.email === user.email) option.selected = true;
-        select.appendChild(option);
-      });
-      if (!session.previewing) own.selected = true;
-      select.disabled = false;
-      select.addEventListener('change', () => {
-        select.disabled = true;
-        setPreview(select.value).catch(error => {
-          console.error('[Auth preview]', error);
-          select.disabled = false;
-        });
-      });
-    } catch (error) {
-      console.warn('[Auth preview users]', error);
-    }
-  }
+function clearSessionCookie(res) {
+  res.setHeader('Set-Cookie', [
+    cookie(SESSION_COOKIE, '', { maxAge: 0 }),
+    cookie(PREVIEW_COOKIE, '', { maxAge: 0 }),
+  ]);
+}
 
-  function renderUserChip(session) {
-    const user = session.user;
-    const header = document.querySelector('.header');
-    if (!header || document.getElementById('authUser')) return;
-    const wrap = document.createElement('div');
-    wrap.className = 'auth-user';
-    wrap.id = 'authUser';
-    wrap.innerHTML = `
-      <div class="auth-user-main" aria-label="Aktywny widok użytkownika">
-        <span class="auth-avatar">${String(user.name || user.email).trim().charAt(0).toUpperCase()}</span>
-        <span class="auth-user-copy">
-          <strong>${escapeHtml(user.name || user.email)}</strong>
-          <small>${escapeHtml(user.role || '')}${user.team ? ' · ' + escapeHtml(user.team) : ''}</small>
-        </span>
-      </div>
-      <button class="auth-logout" type="button" id="authLogoutBtn" title="Wyloguj">Wyloguj</button>`;
+function getSession(req) {
+  const cookies = parseCookies(req);
+  return verifySessionToken(cookies[SESSION_COOKIE]);
+}
 
-    if (session.actualUser && String(session.actualUser.role || '').toLowerCase() === 'admin') {
-      const previewWrap = document.createElement('label');
-      previewWrap.className = 'auth-preview-control';
-      previewWrap.innerHTML = '<span>Podgląd jako</span><select id="authPreviewSelect" disabled><option>Ładowanie…</option></select>';
-      wrap.prepend(previewWrap);
-      header.appendChild(wrap);
-      attachAdminPreview(previewWrap.querySelector('select'), session);
-    } else {
-      header.appendChild(wrap);
-    }
+function setPreviewCookie(res, email) {
+  const token = createSignedPayload({ email: String(email || '').trim().toLowerCase() }, PREVIEW_TTL_SECONDS);
+  res.setHeader('Set-Cookie', cookie(PREVIEW_COOKIE, token, { maxAge: PREVIEW_TTL_SECONDS }));
+}
 
-    document.getElementById('authLogoutBtn').addEventListener('click', async () => {
-      const btn = document.getElementById('authLogoutBtn');
-      btn.disabled = true;
-      try {
-        await fetch('/api/logout', { method: 'POST', cache: 'no-store', credentials: 'same-origin' });
-      } catch (_) {}
-      window.location.assign('/');
-    });
+function clearPreviewCookie(res) {
+  res.setHeader('Set-Cookie', cookie(PREVIEW_COOKIE, '', { maxAge: 0 }));
+}
 
-    addPreviewBanner(session);
-  }
+function getPreviewEmail(req) {
+  const cookies = parseCookies(req);
+  const payload = verifySignedPayload(cookies[PREVIEW_COOKIE]);
+  return payload && payload.email ? String(payload.email).trim().toLowerCase() : '';
+}
 
-  async function initAuth() {
-    const overlay = createOverlay();
-    const status = document.getElementById('authStatus');
-    const loginBtn = document.getElementById('authLoginBtn');
-    const urlMessage = authMessageFromUrl();
+function createState() {
+  return crypto.randomBytes(24).toString('base64url');
+}
 
-    try {
-      const response = await fetch('/api/me', { cache: 'no-store', credentials: 'same-origin' });
-      const data = await response.json();
+function setStateCookie(res, state) {
+  res.setHeader('Set-Cookie', cookie(STATE_COOKIE, state, { maxAge: 10 * 60 }));
+}
 
-      if (data && data.authenticated && data.user) {
-        window.AUTH_SESSION = data;
-        const actualRole = data.actualUser ? String(data.actualUser.role || '').trim().toLowerCase() : '';
-        const effectiveRole = data.user ? String(data.user.role || '').trim().toLowerCase() : '';
-        const actualIsAdmin = actualRole === 'admin';
+function consumeAndVerifyState(req, res, providedState) {
+  const cookies = parseCookies(req);
+  const stored = cookies[STATE_COOKIE] || '';
+  res.setHeader('Set-Cookie', cookie(STATE_COOKIE, '', { maxAge: 0 }));
+  return Boolean(providedState && stored && safeEqual(providedState, stored));
+}
 
-        window.AUTH_CAN_ADMIN = Boolean(actualIsAdmin && !data.previewing);
-        window.AUTH_CAN_CLIENTS = Boolean(effectiveRole === 'admin' || effectiveRole === 'manager');
-
-        const accountAddRoles = new Set(['admin', 'manager', 'specjalista']);
-        window.AUTH_CAN_ADD_ACCOUNT = Boolean(accountAddRoles.has(actualRole) && !data.previewing);
-        window.AUTH_SHOW_ADD_ACCOUNT = Boolean(accountAddRoles.has(effectiveRole));
-
-        document.querySelectorAll('[data-admin-only]').forEach(el => { el.hidden = !window.AUTH_CAN_ADMIN; });
-        document.querySelectorAll('[data-clients-access]').forEach(el => { el.hidden = !window.AUTH_CAN_CLIENTS; });
-        document.querySelectorAll('[data-specialist-only]').forEach(el => { el.hidden = !window.AUTH_SHOW_ADD_ACCOUNT; });
-
-        renderUserChip(data);
-        overlay.remove();
-        document.documentElement.classList.remove('auth-pending', 'auth-locked');
-        cleanAuthQuery();
-        resolveAuth(data);
-        return;
-      }
-
-      status.textContent = urlMessage || 'Zaloguj się firmowym kontem Google Workspace.';
-      loginBtn.hidden = false;
-      document.documentElement.classList.remove('auth-pending');
-      document.documentElement.classList.add('auth-locked');
-      resolveAuth({ authenticated: false, user: null });
-    } catch (error) {
-      console.error('[Auth]', error);
-      status.textContent = 'Nie udało się sprawdzić sesji. Odśwież stronę lub spróbuj ponownie za chwilę.';
-      loginBtn.hidden = false;
-      document.documentElement.classList.remove('auth-pending');
-      document.documentElement.classList.add('auth-locked');
-      resolveAuth({ authenticated: false, user: null, error: true });
-    }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initAuth, { once: true });
-  } else {
-    initAuth();
-  }
-})();
+module.exports = {
+  clearPreviewCookie,
+  clearSessionCookie,
+  consumeAndVerifyState,
+  createState,
+  getPreviewEmail,
+  getSession,
+  requireEnv,
+  setPreviewCookie,
+  setSessionCookie,
+  setStateCookie,
+};

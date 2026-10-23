@@ -109,6 +109,7 @@ async function getOptions(req, context) {
 
   const googleSourcesByOwner = {};
   owners.forEach(owner => { googleSourcesByOwner[normalizeEmail(owner.email)] = []; });
+
   mck.rows
     .filter(row => isActive(row['Aktywne']))
     .forEach(row => {
@@ -132,7 +133,12 @@ async function getOptions(req, context) {
     .filter(item => item.id);
 
   return {
-    owners: owners.map(user => ({ email: normalizeEmail(user.email), name: clean(user.name), role: clean(user.role), team: clean(user.team) })),
+    owners: owners.map(user => ({
+      email: normalizeEmail(user.email),
+      name: clean(user.name),
+      role: clean(user.role),
+      team: clean(user.team),
+    })),
     googleSourcesByOwner,
     metaSources,
   };
@@ -150,6 +156,7 @@ module.exports = async function handler(req, res) {
     }
 
     const options = await getOptions(req, context);
+
     if (req.method === 'GET') {
       return json(res, 200, {
         ok: true,
@@ -158,9 +165,16 @@ module.exports = async function handler(req, res) {
         ...options,
       });
     }
-    if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'method_not_allowed' });
+
+    if (req.method !== 'POST') {
+      return json(res, 405, { ok: false, error: 'method_not_allowed' });
+    }
     if (context.previewing) {
-      return json(res, 409, { ok: false, error: 'preview_mode', message: 'Tryb Podgląd jako pokazuje formularz, ale nie pozwala zapisywać zmian.' });
+      return json(res, 409, {
+        ok: false,
+        error: 'preview_mode',
+        message: 'Tryb Podgląd jako pokazuje formularz, ale nie pozwala zapisywać zmian.',
+      });
     }
 
     const actualRole = role(context.actualUser && context.actualUser.role);
@@ -179,6 +193,7 @@ module.exports = async function handler(req, res) {
     if (!['Google Ads', 'Meta Ads'].includes(platform)) {
       return json(res, 400, { ok: false, error: 'invalid_platform', message: 'Wybierz Google Ads albo Meta Ads.' });
     }
+
     const name = clean(body.name);
     const type = clean(body.type);
     const sourceId = clean(body.sourceId);
@@ -192,16 +207,19 @@ module.exports = async function handler(req, res) {
       if (accountId.length !== 10) {
         return json(res, 400, { ok: false, error: 'invalid_account_id', message: 'ID konta Google Ads powinno mieć 10 cyfr.' });
       }
+
       const ownerSources = options.googleSourcesByOwner[ownerEmail] || [];
       const allowed = ownerSources.find(item => item.id === sourceId) || (ownerSources.length === 1 ? ownerSources[0] : null);
-      if (!allowed) return json(res, 403, { ok: false, error: 'mck_forbidden', message: 'Wybrane MCK nie jest przypisane do wybranego opiekuna.' });
+      if (!allowed) {
+        return json(res, 403, { ok: false, error: 'mck_forbidden', message: 'Wybrane MCK nie jest przypisane do wybranego opiekuna.' });
+      }
 
       const sheet = await fetchSheetByName(IDS.config, GOOGLE_SHEET, req);
       requireHeaders(sheet.headers, ['mck id', 'id konta', 'konto', 'typ', 'uzytkownik', 'email', 'budzet', 'aktywne'], GOOGLE_SHEET);
-      const duplicate = sheet.rows.find(row => normalizeGoogleId(row['ID Konta']) === accountId);
-      if (duplicate) {
+      if (sheet.rows.some(row => normalizeGoogleId(row['ID Konta']) === accountId)) {
         return json(res, 409, { ok: false, error: 'duplicate', message: 'To konto Google Ads jest już w konfiguracji. Użyj funkcji Przypisz, jeśli chcesz zmienić opiekuna.' });
       }
+
       const row = buildRow(sheet.headers, {
         mckId: allowed.id,
         accountId: displayGoogleId(accountId),
@@ -217,18 +235,21 @@ module.exports = async function handler(req, res) {
     }
 
     const accountId = normalizeMetaId(body.accountId);
-    if (accountId.length < 5) {
-      return json(res, 400, { ok: false, error: 'invalid_account_id', message: 'Podaj prawidłowe ID konta Meta Ads.' });
+    if (!accountId) {
+      return json(res, 400, { ok: false, error: 'invalid_account_id', message: 'Podaj poprawne ID konta Meta Ads.' });
     }
+
     const allowed = options.metaSources.find(item => item.id === sourceId) || (options.metaSources.length === 1 ? options.metaSources[0] : null);
-    if (!allowed) return json(res, 403, { ok: false, error: 'bm_forbidden', message: 'Wybierz aktywny Business Manager.' });
+    if (!allowed) {
+      return json(res, 403, { ok: false, error: 'bm_forbidden', message: 'Wybierz poprawny Business Manager.' });
+    }
 
     const sheet = await fetchSheetByName(IDS.config, META_SHEET, req);
-    requireHeaders(sheet.headers, ['id konta', 'konto', 'bm id', 'typ', 'uzytkownik', 'email', 'budzet', 'aktywne'], META_SHEET);
-    const duplicate = sheet.rows.find(row => normalizeMetaId(row['ID Konta']) === accountId);
-    if (duplicate) {
+    requireHeaders(sheet.headers, ['bm id', 'id konta', 'konto', 'typ', 'uzytkownik', 'email', 'budzet', 'aktywne'], META_SHEET);
+    if (sheet.rows.some(row => normalizeMetaId(row['ID Konta']) === accountId)) {
       return json(res, 409, { ok: false, error: 'duplicate', message: 'To konto Meta Ads jest już w konfiguracji. Użyj funkcji Przypisz, jeśli chcesz zmienić opiekuna.' });
     }
+
     const row = buildRow(sheet.headers, {
       bmId: allowed.id,
       accountId: displayMetaId(accountId),
@@ -242,7 +263,7 @@ module.exports = async function handler(req, res) {
     clearMappingsCache();
     return json(res, 200, { ok: true, platform, accountId: displayMetaId(accountId), sourceId: allowed.id, ownerEmail });
   } catch (error) {
-    console.error('[Account add]', error);
-    return json(res, 500, { ok: false, error: 'account_add_failed', message: error.message });
+    console.error('[Account self-service]', error);
+    return json(res, 500, { ok: false, error: 'self_service_failed', message: error.message });
   }
 };
