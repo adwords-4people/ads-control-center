@@ -1,13 +1,6 @@
 // ═══════════════════════════════════════════════════════
 //  KONFIGURACJA
 // ═══════════════════════════════════════════════════════
-// UWAGA — MIGRACJA: WEBAPP_URL musi wskazywać na Web App wdrożony z poziomu skryptu
-// PRZYPIĘTEGO do nowego pliku (SHEET_ID poniżej), z SHEET_NAME = 'Dziennik zmian'.
-// Stary URL wskazywał na poprzedni plik danych i nie zadziała tutaj — dopóki nie wklejisz
-// nowego URL-a, odczyt notatek będzie działać (czyta wprost z arkusza), ale dodawanie
-// i usuwanie notatek przez formularz w dashboardzie będzie zablokowane.
-const WEBAPP_URL = '';
-
 // Nowy plik źródłowy — jeden skonsolidowany skrypt zamiast osobnych skryptów per zakładka.
 const SHEET_ID = '1_CMt0tZhGqT3y6wp5tTpetU7GtNtt2bKkzERg2iLNhw';
 
@@ -22,7 +15,6 @@ const SHEET_NAMES = {
   wyniki:       'Wyniki',
   wartKonw:     'Wartość konwersji',
   anomalia:     'Anomalia',
-  notatki:      'Dziennik zmian',
 };
 
 // Arkusz Meta Ads — osobny plik Google Sheets, wszystkie zakładki adresowane po GID
@@ -51,7 +43,6 @@ const CONFIG_SHEET_NAMES = {
 };
 
 if (!SHEET_ID) console.error('[Config] Brak SHEET_ID — dashboard nie pobierze danych.');
-if (!WEBAPP_URL) console.warn('[Config] Brak WEBAPP_URL — dodawanie/usuwanie notatek będzie niedostępne (odczyt działa niezależnie).');
 if (!META_SHEET_ID) console.warn('[Config] Brak META_SHEET_ID — dane Meta Ads będą niedostępne.');
 if (!CONFIG_SHEET_ID) console.warn('[Config] Brak CONFIG_SHEET_ID — progi spadną na wartości systemowe (DEFAULTS/META_DEFAULTS).');
 

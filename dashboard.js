@@ -760,7 +760,6 @@ async function loadAllData() {
     const wyniki = unpack('wyniki');
     const wartKonw = unpack('wartKonw');
     const anomalia = unpack('anomalia');
-    const notatki = unpack('notatki');
 
     const metaWydatki = unpack('metaWydatki');
     const metaAnomalia = unpack('metaAnomalia');
@@ -791,7 +790,7 @@ async function loadAllData() {
     }
 
     DATA = {
-      wydatki, audyt, audytWart, wyniki, wartKonw, anomalia, notatki,
+      wydatki, audyt, audytWart, wyniki, wartKonw, anomalia,
       metaWydatki, metaDzienny, metaMiesieczny, metaAudyt, metaAudytWart,
       metaAnomalia, metaWartoscKonwersji, metaKonta, progiGoogle, progiMeta,
     };
@@ -809,7 +808,7 @@ async function loadAllData() {
     DATA._nameToId = buildNameToIdMap(DATA.wydatki);
     DATA._nameToIdMeta = buildNameToIdMap(DATA.metaWydatki);
 
-    NOTES = mapNotatkiRows(notatki);
+    NOTES = [];
 
     updateReportDates();
     const updateEl = document.getElementById('lastUpdate');
@@ -833,6 +832,7 @@ async function loadAllData() {
 
     ALL_KONTA = [...new Set([...GOOGLE_KONTA, ...META_KONTA])].sort();
     updateKontoDropdowns();
+    if (typeof refreshNotatki === 'function') await refreshNotatki({ silent: true });
 
     renderAll();
     renderNotesList();
@@ -915,18 +915,28 @@ function onPlatformaChange() {
     sel.disabled = true;
     return;
   }
-  const list = platforma === 'Meta Ads' ? META_KONTA : GOOGLE_KONTA;
-  sel.disabled = false;
+  const items = typeof accountOptionsForPlatform === 'function' ? accountOptionsForPlatform(platforma) : [];
+  sel.disabled = Boolean(window.AUTH_SESSION && window.AUTH_SESSION.previewing);
   sel.innerHTML = '<option value="">— wybierz konto —</option>' +
-    list.map(k=>`<option value="${escHtml(k)}"${k===cur?' selected':''}>${escHtml(k)}</option>`).join('');
+    items.map(item => `<option value="${escHtml(item.id)}" data-name="${escHtml(item.name)}"${item.id === cur ? ' selected' : ''}>${escHtml(item.name)} · ${escHtml(item.id)}</option>`).join('');
+  if (typeof applyNotesReadOnlyState === 'function') applyNotesReadOnlyState();
 }
 
 function updateKontoDropdowns() {
-  onPlatformaChange(); // odśwież listę kont w formularzu dla aktualnie wybranej platformy
+  onPlatformaChange();
   const fsel = document.getElementById('dzFilterKonto');
   const fcur = fsel.value;
+  const google = typeof accountOptionsForPlatform === 'function' ? accountOptionsForPlatform('Google Ads') : [];
+  const meta = typeof accountOptionsForPlatform === 'function' ? accountOptionsForPlatform('Meta Ads') : [];
+  const options = [
+    ...google.map(item => ({...item, platform: 'Google Ads'})),
+    ...meta.map(item => ({...item, platform: 'Meta Ads'})),
+  ].sort((a, b) => a.name.localeCompare(b.name, 'pl', { sensitivity: 'base' }));
   fsel.innerHTML = '<option value="">Wszystkie konta</option>' +
-    ALL_KONTA.map(k=>`<option value="${escHtml(k)}"${k===fcur?' selected':''}>${escHtml(k)}</option>`).join('');
+    options.map(item => {
+      const value = `${item.platform}|${item.id}`;
+      return `<option value="${escHtml(value)}"${value === fcur ? ' selected' : ''}>${escHtml(item.name)} · ${escHtml(item.platform)}</option>`;
+    }).join('');
 }
 
 function applyFilters() {
@@ -1089,11 +1099,12 @@ function openDziennikForKonto(konto, platforma) {
   const btn = document.querySelector('.nav-item.nav-dziennik');
   showPage('dziennik', btn);
 
-  const filterKontoSel = document.getElementById('dzFilterKonto');
-  if (filterKontoSel) filterKontoSel.value = konto;
   const filterPlatformaSel = document.getElementById('dzFilterPlatforma');
   if (filterPlatformaSel && platforma) filterPlatformaSel.value = platforma;
-  renderNotesList();
+  const idMap = platforma === 'Meta Ads' ? (DATA._nameToIdMeta || {}) : (DATA._nameToId || {});
+  const accountId = String(idMap[konto] || '').replace(/[^0-9]/g, '');
+  const filterKontoSel = document.getElementById('dzFilterKonto');
+  if (filterKontoSel && platforma && accountId) filterKontoSel.value = `${platforma}|${accountId}`;
 
   const formPlatformaSel = document.getElementById('notePlatforma');
   if (formPlatformaSel && platforma) {
@@ -1101,7 +1112,8 @@ function openDziennikForKonto(konto, platforma) {
     onPlatformaChange();
   }
   const formKontoSel = document.getElementById('noteKonto');
-  if (formKontoSel) formKontoSel.value = konto;
+  if (formKontoSel && accountId) formKontoSel.value = accountId;
+  renderNotesList();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1403,9 +1415,6 @@ function showToast(msg, cls='ok') {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=>el.classList.remove('show'), 3000);
 }
-function showWebappHelp() {
-  showToast('Otwórz plik apps_script.gs i postępuj zgodnie z instrukcją.','ok');
-}
 
 // ═══════════════════════════════════════════════════════
 //  NAWIGACJA
@@ -1474,9 +1483,6 @@ function applyPageUI(name, btn) {
   search.placeholder = searchLabel;
   search.setAttribute('aria-label', searchLabel);
 
-  if (name==='dziennik') {
-    document.getElementById('webappBanner').style.display = WEBAPP_URL ? 'none' : 'flex';
-  }
   if ((name === 'clients' || name === 'admin') && typeof window.loadAdminOverview === 'function') {
     window.loadAdminOverview(false);
   }

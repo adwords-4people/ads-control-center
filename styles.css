@@ -977,3 +977,10 @@ body.is-resizing-column *{cursor:col-resize !important;user-select:none !importa
 .manager-clients-table .metric-green{color:var(--green-dark)}
 .manager-clients-table .metric-gray{color:var(--text)}
 @media(max-width:1200px){.manager-clients-table{min-width:1180px}}
+
+/* Dziennik v1.7.21 */
+.note-type-badge{font-size:10px;padding:2px 9px;border-radius:20px;font-weight:700;font-family:'Open Sans',sans-serif;border:1px solid var(--border2);background:var(--bg3);color:var(--muted)}
+.note-type-badge.large{background:rgba(254,149,0,.10);border-color:rgba(254,149,0,.35);color:#A86100}
+.note-type-badge.small{background:var(--brand-soft-green);border-color:rgba(131,195,65,.35);color:var(--green-dark)}
+.note-type-badge.other{background:var(--bg3);border-color:var(--border2);color:var(--muted)}
+.note-author{margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:10.5px;color:var(--muted2);font-family:'Open Sans',sans-serif}

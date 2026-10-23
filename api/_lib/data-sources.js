@@ -14,7 +14,6 @@ const GOOGLE_SOURCES = Object.freeze({
   wyniki: 'Wyniki',
   wartKonw: 'Wartość konwersji',
   anomalia: 'Anomalia',
-  notatki: 'Dziennik zmian',
 });
 
 const CONFIG_SOURCES = Object.freeze({
@@ -37,15 +36,6 @@ function lower(value) { return String(value || '').trim().toLowerCase(); }
 
 function filterGoogle(rows, scope, sheetName) {
   if (scope.unrestricted) return rows;
-  if (sheetName === 'Dziennik zmian') {
-    return rows.filter(row => {
-      const platform = lower(row['Platforma']);
-      const name = lower(row['Konto']);
-      if (platform.includes('meta')) return scope.metaNames.has(name);
-      if (platform.includes('google')) return scope.googleNames.has(name);
-      return scope.googleNames.has(name) || scope.metaNames.has(name);
-    });
-  }
   return rows.filter(row => {
     const id = normalizeGoogleId(row['ID Konta']);
     if (id) return scope.googleIds.has(id);

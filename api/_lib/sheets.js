@@ -1,11 +1,13 @@
 const DEFAULT_CONFIG_SHEET_ID = '1fy9NxgD9G52lRRie4Br9L-Y_VRVseZ4ksFmH32t5v8M';
 const DEFAULT_GOOGLE_DATA_SHEET_ID = '1_CMt0tZhGqT3y6wp5tTpetU7GtNtt2bKkzERg2iLNhw';
 const DEFAULT_META_DATA_SHEET_ID = '1_GCw4RqECUNeKisRNXSpb0ekcz1IQNxgb180ymexLOU';
+const DEFAULT_NOTES_SHEET_ID = '1nIQK_G-4iqgtFUJfw4XFurfJzR9bhuan3YpilywXtMc';
 
 const IDS = Object.freeze({
   config: process.env.CONFIG_SHEET_ID || DEFAULT_CONFIG_SHEET_ID,
   google: process.env.GOOGLE_DATA_SHEET_ID || DEFAULT_GOOGLE_DATA_SHEET_ID,
   meta: process.env.META_DATA_SHEET_ID || DEFAULT_META_DATA_SHEET_ID,
+  notes: process.env.NOTES_SHEET_ID || DEFAULT_NOTES_SHEET_ID,
 });
 
 const STS_URL = 'https://sts.googleapis.com/v1/token';
@@ -178,6 +180,24 @@ function valuesToObjects(values) {
   return { headers, rows };
 }
 
+function valuesToObjectsWithRowNumbers(values) {
+  const table = Array.isArray(values) ? values : [];
+  const headers = (table[0] || []).map(value => String(value === undefined ? '' : value).trim());
+  const rows = table.slice(1).map((valuesRow, offset) => {
+    const obj = {};
+    headers.forEach((header, index) => {
+      if (!header) return;
+      const value = valuesRow[index] === undefined || valuesRow[index] === null
+        ? ''
+        : String(valuesRow[index]).trim();
+      if (!(header in obj) || obj[header] === '') obj[header] = value;
+    });
+    Object.defineProperty(obj, '__rowNumber', { value: offset + 2, enumerable: false });
+    return obj;
+  }).filter(row => Object.values(row).some(value => String(value).trim() !== ''));
+  return { headers, rows };
+}
+
 async function fetchSheetByName(sheetId, sheetName, req) {
   const safeTitle = escapeSheetTitle(sheetName);
   const range = `'${safeTitle}'!A:ZZZ`;
@@ -233,6 +253,22 @@ async function fetchSheetByGid(sheetId, gid, req) {
   const title = map.get(String(gid));
   if (!title) throw new Error(`Nie znaleziono zakladki o GID ${gid} w arkuszu ${sheetId}.`);
   return fetchSheetByName(sheetId, title, req);
+}
+
+async function fetchSheetByNameWithRowNumbers(sheetId, sheetName, req) {
+  const safeTitle = escapeSheetTitle(sheetName);
+  const range = `'${safeTitle}'!A:ZZZ`;
+  const url = `${SHEETS_API}/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(range)}` +
+    '?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING';
+  const payload = await googleGet(url, req);
+  return valuesToObjectsWithRowNumbers(payload.values || []);
+}
+
+async function fetchSheetByGidWithRowNumbers(sheetId, gid, req) {
+  const map = await getSheetMetadata(sheetId, req);
+  const title = map.get(String(gid));
+  if (!title) throw new Error(`Nie znaleziono zakladki o GID ${gid} w arkuszu ${sheetId}.`);
+  return fetchSheetByNameWithRowNumbers(sheetId, title, req);
 }
 
 async function setSheetRowValues(sheetId, sheetName, rowNumber, values, req) {
@@ -296,6 +332,7 @@ module.exports = {
   IDS,
   appendSheetValues,
   fetchSheetByGid,
+  fetchSheetByGidWithRowNumbers,
   fetchSheetByName,
   fetchSheetsByName,
   getSheetMetadata,
