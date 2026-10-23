@@ -1,7 +1,7 @@
 const { getReportingScope } = require('./_lib/access');
 const { loadAllDashboardSources } = require('./_lib/data-sources');
 
-const BUILD = '1.7.7-report-scope';
+const BUILD = '1.7.9-report-scope-sync';
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -11,7 +11,11 @@ module.exports = async function handler(req, res) {
     const scope = await getReportingScope(req);
     if (!scope) {
       res.statusCode = 401;
-      return res.end(JSON.stringify({ ok: false, error: 'unauthenticated', build: BUILD }));
+      return res.end(JSON.stringify({
+        ok: false,
+        build: BUILD,
+        error: 'unauthenticated',
+      }));
     }
 
     const started = Date.now();
@@ -25,7 +29,9 @@ module.exports = async function handler(req, res) {
       ms: Date.now() - started,
       errors,
       reportingScope: {
-        effectiveUser: scope.effectiveUser && scope.effectiveUser.email || '',
+        effectiveUser: scope.effectiveUser && scope.effectiveUser.email
+          ? scope.effectiveUser.email
+          : '',
         previewing: Boolean(scope.previewing),
         googleAccounts: scope.googleIds ? scope.googleIds.size : 0,
         metaAccounts: scope.metaIds ? scope.metaIds.size : 0,
@@ -35,6 +41,10 @@ module.exports = async function handler(req, res) {
   } catch (error) {
     console.error('[Dashboard data]', error);
     res.statusCode = 500;
-    return res.end(JSON.stringify({ ok: false, error: error.message, build: BUILD }));
+    return res.end(JSON.stringify({
+      ok: false,
+      build: BUILD,
+      error: error && error.message ? error.message : String(error),
+    }));
   }
 };
