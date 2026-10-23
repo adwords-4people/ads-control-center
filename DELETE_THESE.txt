@@ -1,0 +1,10 @@
+USUN DOKLADNIE TE PLIKI Z REPO:
+
+api/access.js
+api/admin/sheets-check.js
+api/overview.js
+api/self-service.js
+overview.js
+self-service.js
+
+Nie usuwaj odpowiednikow z api/_lib, api/admin ani api/accounts.
