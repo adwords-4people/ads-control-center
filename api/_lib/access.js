@@ -2,7 +2,6 @@ const { getPreviewEmail, getSession } = require('./auth');
 const { getActiveUserByEmail, loadUsers } = require('./users');
 const {
   IDS,
-  fetchSheetByName,
   fetchSheetsByName,
   isActive,
   normalizeEmail,
@@ -81,16 +80,7 @@ async function permittedEmailsForUser(user, req) {
     .map(item => normalizeEmail(item.email)));
 }
 
-async function getAccessScope(req) {
-  const context = await getAuthContext(req);
-  if (!context) return null;
-
-  const { effectiveUser } = context;
-  if (isAdmin(effectiveUser)) {
-    return { ...context, unrestricted: true };
-  }
-
-  const emails = await permittedEmailsForUser(effectiveUser, req);
+async function buildRestrictedScope(context, emails, req) {
   const mappings = await loadMappings(req);
 
   const allowedMcks = new Set(mappings.mcks
@@ -100,6 +90,7 @@ async function getAccessScope(req) {
 
   const googleRows = mappings.googleAccounts.filter(row =>
     isActive(row['Aktywne']) && allowedMcks.has(String(row['MCK_ID'] || '').trim()));
+
   const metaRows = mappings.metaAccounts.filter(row =>
     isActive(row['Aktywne']) && emails.has(normalizeEmail(row['Email'])));
 
@@ -113,4 +104,38 @@ async function getAccessScope(req) {
   };
 }
 
-module.exports = { clearMappingsCache, getAccessScope, getAuthContext, isAdmin };
+// Szeroki zakres do widokow zarzadczych (np. Admin -> Klienci):
+// Admin = wszystkie konta, Manager = caly Team, Specjalista = swoje.
+async function getAccessScope(req) {
+  const context = await getAuthContext(req);
+  if (!context) return null;
+
+  const { effectiveUser } = context;
+  if (isAdmin(effectiveUser)) {
+    return { ...context, unrestricted: true };
+  }
+
+  const emails = await permittedEmailsForUser(effectiveUser, req);
+  return buildRestrictedScope(context, emails, req);
+}
+
+// Waski zakres WYŁĄCZNIE do zwyklych raportow:
+// zawsze tylko konta bezposrednio przypisane do effectiveUser.
+// Dzieki effectiveUser preview Admina automatycznie pokazuje konta podgladanego uzytkownika.
+async function getReportingScope(req) {
+  const context = await getAuthContext(req);
+  if (!context) return null;
+
+  const email = normalizeEmail(context.effectiveUser && context.effectiveUser.email);
+  if (!email) return null;
+
+  return buildRestrictedScope(context, new Set([email]), req);
+}
+
+module.exports = {
+  clearMappingsCache,
+  getAccessScope,
+  getAuthContext,
+  getReportingScope,
+  isAdmin,
+};
