@@ -211,14 +211,20 @@
       const platformClass = row.platform === 'Meta Ads' ? 'meta' : 'google';
       const owner = row.ownerName || row.ownerEmail || '\u2014';
       const budget = num(row.budget);
-      const canAssign = Boolean(window.AUTH_CAN_ADMIN && state.overview.canAssignAccounts);
+      const canManage = Boolean(window.AUTH_CAN_ADMIN && state.overview.canAssignAccounts);
+      let actions = '\u2014';
+      if (canManage) {
+        actions = row.active
+          ? `<button type="button" class="admin-link-btn" onclick="openAccountAssignment('${esc(row.platform)}','${esc(row.accountId)}')">Przypisz</button><button type="button" class="admin-link-btn danger" onclick="toggleAccountActive('${esc(row.platform)}','${esc(row.accountId)}',false)">Usuń konto</button>`
+          : `<button type="button" class="admin-link-btn" onclick="toggleAccountActive('${esc(row.platform)}','${esc(row.accountId)}',true)">Przywróć</button>`;
+      }
       return `<tr${row.active ? '' : ' class="admin-inactive-row"'}>
         <td><strong>${esc(row.name || row.accountId)}</strong><small class="admin-cell-sub">${esc(row.accountId)}</small></td>
         <td><span class="note-platforma-badge ${platformClass}">${esc(row.platform)}</span></td>
         <td>${esc(owner)}${row.ownerEmail && row.ownerName ? `<small class="admin-cell-sub">${esc(row.ownerEmail)}</small>` : ''}</td>
         <td>${esc(row.type || '\u2014')}</td>
         <td class="mono">${fmtMoney(budget)}</td>
-        <td class="admin-actions">${canAssign ? `<button type="button" class="admin-link-btn" onclick="openAccountAssignment('${esc(row.platform)}','${esc(row.accountId)}')">Przypisz</button>` : '\u2014'}</td>
+        <td class="admin-actions">${actions}</td>
       </tr>`;
     }).join('') : '<tr><td colspan="6" class="admin-loading">Brak pasuj\u0105cych kont.</td></tr>';
 
@@ -424,6 +430,32 @@
       feedback.className = 'admin-modal-feedback err';
     } finally {
       btn.disabled = false;
+    }
+  };
+
+  window.toggleAccountActive = async function toggleAccountActive(platform, accountId, activate) {
+    if (!window.AUTH_CAN_ADMIN || !state.overview || !state.overview.canAssignAccounts) return;
+    const account = (state.overview.accounts || []).find(item => item.platform === platform && normId(item.accountId) === normId(accountId));
+    const label = account ? (account.name || account.accountId) : accountId;
+    const message = activate
+      ? `Przywrócić konto "${label}"?\n\nKonto zostanie ponownie oznaczone jako aktywne i wróci do synchronizacji.`
+      : `Usunąć konto "${label}"?\n\nKonto zostanie oznaczone jako nieaktywne. Skrypty przestaną je synchronizować, ale historia i wiersz konfiguracji pozostaną.`;
+    if (!window.confirm(message)) return;
+
+    try {
+      const response = await fetch('/api/admin/accounts', {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: activate ? 'activate' : 'deactivate', platform, accountId }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) throw new Error(result.message || result.error || `HTTP ${response.status}`);
+      state.overview = null;
+      await window.loadAdminOverview(true);
+      if (typeof showToast === 'function') showToast(activate ? 'Konto przywrócone.' : 'Konto usunięte z aktywnej synchronizacji.', 'ok');
+    } catch (error) {
+      if (typeof showToast === 'function') showToast(error.message, 'err');
+      else window.alert(error.message);
     }
   };
 
