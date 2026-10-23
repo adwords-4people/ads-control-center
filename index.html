@@ -101,6 +101,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
       Dodaj konto reklamowe
     </button>
+    <button class="nav-item nav-remove-account" data-specialist-only hidden type="button" onclick="openDeleteAccountModal()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/><path d="M9 6V4h6v2"/></svg>
+      Usuń konto
+    </button>
     <button class="nav-item nav-dziennik" onclick="showPage('dziennik',this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       Dziennik zmian
@@ -386,6 +390,21 @@
   </div>
 </div>
 
+<div class="admin-modal-overlay" id="deleteAccountModal" hidden>
+  <div class="admin-modal account-modal" role="dialog" aria-modal="true" aria-labelledby="deleteAccountModalTitle">
+    <div class="admin-modal-head"><div><h2 id="deleteAccountModalTitle">Usuń konto reklamowe</h2><p>Konto zostanie dezaktywowane w konfiguracji. Historia danych pozostanie zachowana.</p></div><button type="button" class="admin-modal-close" onclick="closeDeleteAccountModal()" aria-label="Zamknij">×</button></div>
+    <form id="deleteAccountForm" onsubmit="deleteAccount(event)">
+      <div class="admin-form-grid">
+        <label><span>Platforma</span><select id="deleteAccountPlatform" required onchange="updateDeleteAccountOptions()"><option value="Google Ads">Google Ads</option><option value="Meta Ads">Meta Ads</option></select></label>
+        <label class="account-form-full"><span>Konto</span><select id="deleteAccountSelect" required></select></label>
+      </div>
+      <div class="account-modal-note" id="deleteAccountNote">Usunięcie oznacza dezaktywację konta. Konto przestanie być synchronizowane i zniknie z raportów, ale jego historia nie zostanie skasowana.</div>
+      <div class="admin-modal-feedback" id="deleteAccountFeedback"></div>
+      <div class="admin-modal-actions"><button type="button" class="admin-secondary-btn" onclick="closeDeleteAccountModal()">Anuluj</button><button type="submit" class="admin-primary-btn" id="deleteAccountBtn">Usuń konto</button></div>
+    </form>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <div class="confirm-overlay" id="confirmOverlay">
@@ -402,7 +421,7 @@
 <script src="data.js?v=1.7.5"></script>
 <script src="notes.js"></script>
 <script src="auth.js?v=1.7.8"></script>
-<script src="accounts.js?v=1.6"></script>
+<script src="accounts.js?v=1.7.16"></script>
 <script src="admin.js?v=1.7.15"></script>
 <script src="dashboard.js?v=1.7.5"></script>
 <script src="bootstrap.js?v=1.7.5"></script>

@@ -9,6 +9,7 @@ const {
   normalizeEmail,
   normalizeGoogleId,
   normalizeMetaId,
+  setSheetRowValues,
 } = require('../_lib/sheets');
 
 const GOOGLE_SHEET = 'Konta - Google Ads';
@@ -84,6 +85,44 @@ function requireHeaderGroups(headers, requiredGroups, sheetName) {
   if (missing.length) throw new Error(`Zakładka ${sheetName} nie ma wymaganych kolumn: ${missing.join(', ')}.`);
 }
 
+function accountName(row) {
+  return clean(row['Konto'] || row['Nazwa konta'] || row['Nazwa Konta']);
+}
+function updateRowValues(headers, row, changes) {
+  return headers.map(header => {
+    const key = headerKey(header);
+    if (Object.prototype.hasOwnProperty.call(changes, key)) return changes[key];
+    return row[header] == null ? '' : row[header];
+  });
+}
+function ownAccountsForUser(email, mckRows, googleRows, metaRows) {
+  const ownerEmail = normalizeEmail(email);
+  const ownMcks = new Set((mckRows || [])
+    .filter(row => isActive(row['Aktywne']) && normalizeEmail(row['Email']) === ownerEmail)
+    .map(row => clean(row['MCK_ID']))
+    .filter(Boolean));
+
+  const google = (googleRows || [])
+    .filter(row => isActive(row['Aktywne']) && ownMcks.has(clean(row['MCK_ID'])))
+    .map(row => ({
+      platform: 'Google Ads',
+      accountId: displayGoogleId(row['ID Konta']),
+      name: accountName(row),
+    }))
+    .filter(item => normalizeGoogleId(item.accountId));
+
+  const meta = (metaRows || [])
+    .filter(row => isActive(row['Aktywne']) && normalizeEmail(row['Email']) === ownerEmail)
+    .map(row => ({
+      platform: 'Meta Ads',
+      accountId: displayMetaId(row['ID Konta']),
+      name: accountName(row),
+    }))
+    .filter(item => normalizeMetaId(item.accountId));
+
+  return [...google, ...meta];
+}
+
 async function getEligibleOwners(context, req) {
   const acting = context.previewing ? context.effectiveUser : context.actualUser;
   const actingRole = role(acting && acting.role);
@@ -105,9 +144,11 @@ async function getEligibleOwners(context, req) {
 async function getOptions(req, context) {
   const owners = await getEligibleOwners(context, req);
   const ownerEmails = new Set(owners.map(user => normalizeEmail(user.email)));
-  const sheets = await fetchSheetsByName(IDS.config, [MCK_SHEET, BM_SHEET], req);
+  const sheets = await fetchSheetsByName(IDS.config, [MCK_SHEET, BM_SHEET, GOOGLE_SHEET, META_SHEET], req);
   const mck = sheets.get(MCK_SHEET) || { rows: [] };
   const bm = sheets.get(BM_SHEET) || { rows: [] };
+  const googleAccounts = sheets.get(GOOGLE_SHEET) || { rows: [] };
+  const metaAccounts = sheets.get(META_SHEET) || { rows: [] };
 
   const googleSourcesByOwner = {};
   owners.forEach(owner => { googleSourcesByOwner[normalizeEmail(owner.email)] = []; });
@@ -143,6 +184,12 @@ async function getOptions(req, context) {
     })),
     googleSourcesByOwner,
     metaSources,
+    accounts: ownAccountsForUser(
+      (context.previewing ? context.effectiveUser : context.actualUser).email,
+      mck.rows,
+      googleAccounts.rows,
+      metaAccounts.rows
+    ),
   };
 }
 
@@ -185,6 +232,40 @@ module.exports = async function handler(req, res) {
     }
 
     const body = readBody(req);
+    const action = lower(body.action || 'add');
+
+    if (action === 'deactivate') {
+      const platform = clean(body.platform);
+      if (!['Google Ads', 'Meta Ads'].includes(platform)) {
+        return json(res, 400, { ok: false, error: 'invalid_platform', message: 'Wybierz Google Ads albo Meta Ads.' });
+      }
+
+      const normalizeId = platform === 'Google Ads' ? normalizeGoogleId : normalizeMetaId;
+      const accountId = normalizeId(body.accountId);
+      const allowed = (options.accounts || []).some(item => item.platform === platform && normalizeId(item.accountId) === accountId);
+      if (!accountId || !allowed) {
+        return json(res, 403, { ok: false, error: 'account_forbidden', message: 'Możesz usunąć tylko aktywne konto przypisane bezpośrednio do siebie.' });
+      }
+
+      const sheetName = platform === 'Google Ads' ? GOOGLE_SHEET : META_SHEET;
+      const sheet = await fetchSheetByName(IDS.config, sheetName, req);
+      requireHeaderGroups(sheet.headers, [['id konta'], ['aktywne']], sheetName);
+      const index = sheet.rows.findIndex(row => normalizeId(row['ID Konta']) === accountId);
+      if (index < 0) {
+        return json(res, 404, { ok: false, error: 'account_not_found', message: 'Nie znaleziono konta w konfiguracji.' });
+      }
+
+      const row = sheet.rows[index];
+      const values = updateRowValues(sheet.headers, row, { 'aktywne': 'NIE' });
+      await setSheetRowValues(IDS.config, sheetName, index + 2, values, req);
+      clearMappingsCache();
+      return json(res, 200, { ok: true, action: 'deactivate', platform, accountId });
+    }
+
+    if (action !== 'add') {
+      return json(res, 400, { ok: false, error: 'invalid_action', message: 'Nieobsługiwana operacja na koncie.' });
+    }
+
     const ownerEmail = normalizeEmail(body.ownerEmail || context.actualUser.email);
     const owner = options.owners.find(item => normalizeEmail(item.email) === ownerEmail);
     if (!owner) {

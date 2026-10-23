@@ -1,5 +1,5 @@
 (function () {
-  const state = { loaded: false, loading: false, owners: [], googleSourcesByOwner: {}, metaSources: [], role: '' };
+  const state = { loaded: false, loading: false, owners: [], googleSourcesByOwner: {}, metaSources: [], accounts: [], role: '' };
 
   function text(value) { return String(value == null ? '' : value).trim(); }
   function esc(value) {
@@ -54,6 +54,7 @@
       state.owners = payload.owners || [];
       state.googleSourcesByOwner = payload.googleSourcesByOwner || {};
       state.metaSources = payload.metaSources || [];
+      state.accounts = payload.accounts || [];
       state.role = payload.role || '';
       state.loaded = true;
       renderOwnerOptions();
@@ -133,6 +134,115 @@
     feedback('', false);
   };
 
+  function deleteFeedback(message, error) {
+    const el = document.getElementById('deleteAccountFeedback');
+    if (!el) return;
+    el.textContent = message || '';
+    el.className = 'admin-modal-feedback' + (error ? ' err' : '');
+  }
+
+  window.updateDeleteAccountOptions = function updateDeleteAccountOptions() {
+    const platform = text(document.getElementById('deleteAccountPlatform') && document.getElementById('deleteAccountPlatform').value) || 'Google Ads';
+    const select = document.getElementById('deleteAccountSelect');
+    const note = document.getElementById('deleteAccountNote');
+    if (!select) return;
+
+    const accounts = (state.accounts || []).filter(item => item.platform === platform);
+    if (!accounts.length) {
+      select.innerHTML = '<option value="">Brak aktywnych kont do usunięcia</option>';
+      select.disabled = true;
+      select.required = false;
+      if (note) note.textContent = 'Nie masz aktywnych kont ' + platform + ' przypisanych bezpośrednio do siebie.';
+      return;
+    }
+
+    select.disabled = false;
+    select.required = true;
+    select.innerHTML = accounts.map(item => {
+      const id = text(item.accountId);
+      const name = text(item.name);
+      const label = name ? name + ' · ' + id : id;
+      return '<option value="' + esc(id) + '">' + esc(label) + '</option>';
+    }).join('');
+    if (note) note.textContent = 'Usunięcie oznacza dezaktywację konta. Konto przestanie być synchronizowane i zniknie z raportów, ale jego historia nie zostanie skasowana.';
+  };
+
+  window.openDeleteAccountModal = async function openDeleteAccountModal() {
+    if (!window.AUTH_SHOW_ADD_ACCOUNT) return;
+    const modal = document.getElementById('deleteAccountModal');
+    if (!modal) return;
+    deleteFeedback('Ładowanie kont…', false);
+    modal.hidden = false;
+    try {
+      await loadOptions(true);
+      deleteFeedback('', false);
+      const platform = document.getElementById('deleteAccountPlatform');
+      if (platform) platform.value = 'Google Ads';
+      window.updateDeleteAccountOptions();
+      const btn = document.getElementById('deleteAccountBtn');
+      if (btn) {
+        btn.disabled = !window.AUTH_CAN_ADD_ACCOUNT;
+        btn.title = window.AUTH_CAN_ADD_ACCOUNT ? '' : 'Tryb Podgląd jako — zmiany są wyłączone.';
+      }
+      const note = document.getElementById('deleteAccountNote');
+      if (!window.AUTH_CAN_ADD_ACCOUNT && note) {
+        note.textContent = 'Tryb Podgląd jako: widzisz konta użytkownika, ale ich usuwanie jest wyłączone.';
+      }
+    } catch (error) {
+      console.error('[Account delete]', error);
+      deleteFeedback(error.message, true);
+    }
+  };
+
+  window.closeDeleteAccountModal = function closeDeleteAccountModal() {
+    const modal = document.getElementById('deleteAccountModal');
+    if (modal) modal.hidden = true;
+    const form = document.getElementById('deleteAccountForm');
+    if (form) form.reset();
+    deleteFeedback('', false);
+  };
+
+  window.deleteAccount = async function deleteAccount(event) {
+    event.preventDefault();
+    if (!window.AUTH_CAN_ADD_ACCOUNT) {
+      deleteFeedback('Tryb Podgląd jako — zmiany są wyłączone.', true);
+      return;
+    }
+
+    const platform = text(document.getElementById('deleteAccountPlatform').value);
+    const select = document.getElementById('deleteAccountSelect');
+    const accountId = text(select && select.value);
+    if (!accountId) {
+      deleteFeedback('Wybierz konto do usunięcia.', true);
+      return;
+    }
+
+    const selected = (state.accounts || []).find(item => item.platform === platform && text(item.accountId) === accountId);
+    const label = selected && text(selected.name) ? text(selected.name) + ' (' + accountId + ')' : accountId;
+    if (!window.confirm('Usunąć konto ' + label + '?\n\nKonto zostanie dezaktywowane. Historia danych pozostanie zachowana.')) return;
+
+    const btn = document.getElementById('deleteAccountBtn');
+    if (btn) btn.disabled = true;
+    deleteFeedback('Usuwanie konta…', false);
+    try {
+      const response = await fetch('/api/accounts/self-service', {
+        method: 'POST', cache: 'no-store', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deactivate', platform, accountId }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) throw new Error(result.message || result.error || `HTTP ${response.status}`);
+      window.closeDeleteAccountModal();
+      state.loaded = false;
+      if (typeof showToast === 'function') showToast('Konto usunięte. Zostało dezaktywowane, a historia pozostała zachowana.', 'ok');
+      if (typeof window.loadAllData === 'function') window.loadAllData();
+    } catch (error) {
+      deleteFeedback(error.message, true);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  };
+
   window.saveAccount = async function saveAccount(event) {
     event.preventDefault();
     if (!window.AUTH_CAN_ADD_ACCOUNT) {
@@ -184,7 +294,9 @@
 
   document.addEventListener('keydown', event => {
     const modal = document.getElementById('accountModal');
+    const deleteModal = document.getElementById('deleteAccountModal');
     if (event.key === 'Escape' && modal && !modal.hidden) window.closeAccountModal();
+    if (event.key === 'Escape' && deleteModal && !deleteModal.hidden) window.closeDeleteAccountModal();
   });
 
   if (typeof waitForAuth === 'function') {
