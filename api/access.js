@@ -9,7 +9,7 @@ const {
   normalizeMetaId,
 } = require('./sheets');
 
-const CACHE_MS = 0; // mapowanie kont ma odzwierciedlac zmiany Admina od nastepnego requestu
+const CACHE_MS = 0; // mapowanie kont musi odzwierciedlac zmiany Admina od nastepnego requestu
 let mappingCache = { at: 0, mcks: [], googleAccounts: [], metaAccounts: [] };
 
 function clearMappingsCache() {
@@ -37,8 +37,6 @@ async function getAuthContext(req) {
 
   let effectiveUser = actualUser;
   let previewing = false;
-
-  // Preview jest dostepny tylko dla prawdziwego Admina.
   if (isAdmin(actualUser)) {
     const previewEmail = getPreviewEmail(req);
     if (previewEmail) {
@@ -54,11 +52,8 @@ async function getAuthContext(req) {
 }
 
 async function loadMappings(req) {
-  if (Date.now() - mappingCache.at < CACHE_MS && mappingCache.googleAccounts.length) {
-    return mappingCache;
-  }
+  if (Date.now() - mappingCache.at < CACHE_MS && mappingCache.googleAccounts.length) return mappingCache;
 
-  // Jeden batchGet konfiguracji zamiast 3 osobnych odczytow.
   const sheets = await fetchSheetsByName(IDS.config, [
     'MCK - Google Ads',
     'Konta - Google Ads',
@@ -71,23 +66,18 @@ async function loadMappings(req) {
     googleAccounts: (sheets.get('Konta - Google Ads') || { rows: [] }).rows,
     metaAccounts: (sheets.get('Konta - Meta Ads') || { rows: [] }).rows,
   };
-
   return mappingCache;
 }
 
-// Zakres zarzadczy uzywany przez widoki typu Admin -> Klienci.
-// Admin: wszystkie konta. Manager: caly zespol. Specjalista: tylko swoje.
 async function permittedEmailsForUser(user, req) {
   if (isAdmin(user)) return null;
   if (!isManager(user)) return new Set([normalizeEmail(user.email)]);
 
   const users = await loadUsers(req);
   const team = String(user.team || '').trim().toLowerCase();
-
   return new Set(users
     .filter(item => item.active && String(item.team || '').trim().toLowerCase() === team)
-    .map(item => normalizeEmail(item.email))
-    .filter(Boolean));
+    .map(item => normalizeEmail(item.email)));
 }
 
 async function buildRestrictedScope(context, emails, req) {
@@ -114,13 +104,13 @@ async function buildRestrictedScope(context, emails, req) {
   };
 }
 
-// Szeroki zakres zarzadczy. Zachowujemy dotychczasowe zachowanie dla Admin -> Klienci.
+// Szeroki zakres do widokow zarzadczych (np. Admin -> Klienci):
+// Admin = wszystkie konta, Manager = caly Team, Specjalista = swoje.
 async function getAccessScope(req) {
   const context = await getAuthContext(req);
   if (!context) return null;
 
   const { effectiveUser } = context;
-
   if (isAdmin(effectiveUser)) {
     return { ...context, unrestricted: true };
   }
@@ -129,9 +119,9 @@ async function getAccessScope(req) {
   return buildRestrictedScope(context, emails, req);
 }
 
-// NOWE: zakres tylko dla zwyklych raportow.
-// Niezaleznie od roli raporty pokazuja wyłącznie konta przypisane bezposrednio
-// do effectiveUser. W trybie preview effectiveUser to podgladany uzytkownik.
+// Waski zakres WYŁĄCZNIE do zwyklych raportow:
+// zawsze tylko konta bezposrednio przypisane do effectiveUser.
+// Dzieki effectiveUser preview Admina automatycznie pokazuje konta podgladanego uzytkownika.
 async function getReportingScope(req) {
   const context = await getAuthContext(req);
   if (!context) return null;
@@ -148,4 +138,5 @@ module.exports = {
   getAuthContext,
   getReportingScope,
   isAdmin,
+  isManager,
 };
