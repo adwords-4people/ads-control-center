@@ -129,9 +129,12 @@
   function priorityMarkup(health) {
     const priority = health && health.priority || 'ok';
     const labels = { intervention: 'Interwencja', check: 'Sprawd\u017a', ok: 'OK', inactive: 'Nieaktywne' };
+    return `<span class="manager-priority ${esc(priority)}">${esc(labels[priority] || priority)}</span>`;
+  }
+  function reasonMarkup(health) {
     const reasons = (health && health.reasons || []).slice(0, 3);
-    return `<span class="manager-priority ${esc(priority)}">${esc(labels[priority] || priority)}</span>` +
-      (reasons.length ? `<small class="manager-health-sub">${esc(reasons.join(' \u00b7 '))}</small>` : '');
+    if (reasons.length) return `<span class="manager-health-main">${esc(reasons.join(' \u00b7 '))}</span>`;
+    return '<span class="manager-health-sub">Brak istotnych alertów</span>';
   }
 
   function updateManagerOwnerFilter(managerMode, accounts) {
@@ -159,6 +162,37 @@
     return lower(select.value);
   }
 
+  function updateManagerPriorityFilter(managerMode) {
+    const select = document.getElementById('adminClientPriority');
+    if (!select) return '';
+    if (!managerMode) {
+      select.hidden = true;
+      select.value = '';
+      return '';
+    }
+    select.hidden = false;
+    return lower(select.value);
+  }
+
+  function updateManagerTypeFilter(managerMode, accounts) {
+    const select = document.getElementById('adminClientType');
+    if (!select) return '';
+    if (!managerMode) {
+      select.hidden = true;
+      select.value = '';
+      return '';
+    }
+    const current = lower(select.value);
+    const types = [...new Set((accounts || []).map(row => text(row.type)).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'pl'));
+    select.innerHTML = '<option value="">Wszystkie typy</option>' + types.map(type =>
+      `<option value="${esc(lower(type))}">${esc(type)}</option>`
+    ).join('');
+    select.hidden = false;
+    if (current && types.some(type => lower(type) === current)) select.value = current;
+    return lower(select.value);
+  }
+
   window.renderAdminClients = function renderAdminClients() {
     if (!window.AUTH_CAN_CLIENTS) return;
     const body = document.getElementById('adminClientsBody');
@@ -175,9 +209,13 @@
     const platform = text(document.getElementById('adminClientPlatform') && document.getElementById('adminClientPlatform').value);
     const all = state.overview.accounts || [];
     const ownerFilter = updateManagerOwnerFilter(managerMode, all);
+    const priorityFilter = updateManagerPriorityFilter(managerMode);
+    const typeFilter = updateManagerTypeFilter(managerMode, all);
     let rows = all.filter(row => {
       if (platform && row.platform !== platform) return false;
       if (ownerFilter && lower(row.ownerEmail || row.ownerName) !== ownerFilter) return false;
+      if (priorityFilter && lower(row.health && row.health.priority) !== priorityFilter) return false;
+      if (typeFilter && lower(row.type) !== typeFilter) return false;
       if (!q) return true;
       return [row.name, row.accountId, row.ownerName, row.ownerEmail, row.type, row.platform].some(value => lower(value).includes(q));
     });
@@ -194,8 +232,8 @@
     if (typeof updateResultsCountDisplay === 'function') updateResultsCountDisplay();
 
     if (managerMode) {
-      if (head) head.innerHTML = '<tr><th>Klient / konto</th><th>Platforma</th><th>Opiekun</th><th>Bud\u017cet</th><th>Wynik</th><th>Trend wy\u015b.</th><th>Anomalia d/d</th><th>ROAS / CPA</th><th>Priorytet</th></tr>';
-      if (note) note.textContent = `Widok Teamu ${state.overview.team || ''}. Konta wymagaj\u0105ce interwencji s\u0105 automatycznie przenoszone na g\u00f3r\u0119.`;
+      if (head) head.innerHTML = '<tr><th>Klient / konto</th><th>Platforma</th><th>Opiekun</th><th>Prognoza bud\u017cetu</th><th>Wynik</th><th>Zmiana wyniku</th><th>CPA / ROAS</th><th>Priorytet</th><th>Powód</th></tr>';
+      if (note) note.textContent = `Widok Teamu ${state.overview.team || ''}. Konta wymagaj\u0105ce interwencji s\u0105 automatycznie przenoszone na gór\u0119.`;
       body.innerHTML = rows.length ? rows.map(row => {
         const platformClass = row.platform === 'Meta Ads' ? 'meta' : 'google';
         const owner = row.ownerName || row.ownerEmail || '\u2014';
@@ -203,7 +241,9 @@
         const m = h.metrics || {};
         const tones = h.tones || {};
         const resultMain = healthMetric(m.result, tones.result, value => fmtNumber(value, 1));
-        const resultSub = m.resultRatio == null ? '' : `<small class="manager-health-sub">vs poprz. ${esc(pctText(m.resultRatio, false))}</small>`;
+        const resultChange = m.resultRatio == null
+          ? '<span class="metric-empty">\u2014</span>'
+          : healthMetric(Number(m.resultRatio) - 100, tones.resultRatio, value => pctText(value, true));
         let efficiency = '<span class="metric-empty">\u2014</span>';
         if (lower(row.type) === 'sklep' && m.roas != null) efficiency = healthMetric(m.roas, tones.roas, value => `ROAS ${fmtNumber(value, 0)}%`);
         else if (m.cpa != null) efficiency = healthMetric(m.cpa, 'gray', value => `CPA ${fmtMoney(value)}`);
@@ -211,12 +251,12 @@
           <td><strong>${esc(row.name || row.accountId)}</strong><small class="admin-cell-sub">${esc(row.accountId)}</small></td>
           <td><span class="note-platforma-badge ${platformClass}">${esc(row.platform)}</span></td>
           <td><strong>${esc(owner)}</strong>${row.ownerEmail ? `<small class="admin-cell-sub">${esc(row.ownerEmail)}</small>` : ''}</td>
-          <td>${healthMetric(m.budgetPct, tones.budget, value => pctText(value, false))}<small class="admin-cell-sub">Bud\u017cet: ${esc(fmtMoney(num(row.budget)))}</small></td>
-          <td class="manager-health-cell">${resultMain}${resultSub}</td>
-          <td>${healthMetric(m.trend, tones.trend, value => pctText(value, true))}</td>
-          <td>${healthMetric(m.anomaly, tones.anomaly, value => pctText(value, true))}</td>
+          <td>${healthMetric(m.budgetPct, tones.budget, value => pctText(value, false))}</td>
+          <td class="manager-health-cell">${resultMain}</td>
+          <td>${resultChange}</td>
           <td>${efficiency}</td>
-          <td class="manager-health-cell">${priorityMarkup(h)}</td>
+          <td>${priorityMarkup(h)}</td>
+          <td class="manager-health-cell">${reasonMarkup(h)}</td>
         </tr>`;
       }).join('') : '<tr><td colspan="9" class="admin-loading">Brak pasuj\u0105cych kont.</td></tr>';
 
