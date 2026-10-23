@@ -9,6 +9,38 @@
   }
   function lower(value) { return text(value).toLowerCase(); }
 
+  function normalizeAccountId(platform, value) {
+    const raw = text(value);
+    if (platform === 'Google Ads') return raw.replace(/\D/g, '');
+    return raw.replace(/^act_/i, '').replace(/\D/g, '');
+  }
+
+  function dashboardAccountName(platform, accountId) {
+    let data = null;
+    try { data = typeof DATA !== 'undefined' ? DATA : null; } catch (_) { data = null; }
+    if (!data) return '';
+
+    const wanted = normalizeAccountId(platform, accountId);
+    if (!wanted) return '';
+    const sources = platform === 'Google Ads'
+      ? ['wydatki', 'audyt', 'wyniki', 'wartKonw', 'anomalia']
+      : ['metaKonta', 'metaWydatki', 'metaDzienny', 'metaMiesieczny', 'metaAudyt', 'metaWartoscKonwersji', 'metaAnomalia'];
+
+    for (const key of sources) {
+      const rows = Array.isArray(data[key]) ? data[key] : [];
+      const row = rows.find(item => normalizeAccountId(platform, item && item['ID Konta']) === wanted);
+      if (!row) continue;
+      const name = text(row['Konto'] || row['Nazwa konta'] || row['Nazwa Konta']);
+      if (name) return name;
+    }
+    return '';
+  }
+
+  function accountDisplayName(item) {
+    if (!item) return '';
+    return text(item.name) || dashboardAccountName(item.platform, item.accountId);
+  }
+
   function feedback(message, error) {
     const el = document.getElementById('accountModalFeedback');
     if (!el) return;
@@ -160,7 +192,7 @@
     select.required = true;
     select.innerHTML = accounts.map(item => {
       const id = text(item.accountId);
-      const name = text(item.name);
+      const name = accountDisplayName(item);
       const label = name ? name + ' · ' + id : id;
       return '<option value="' + esc(id) + '">' + esc(label) + '</option>';
     }).join('');
@@ -218,7 +250,8 @@
     }
 
     const selected = (state.accounts || []).find(item => item.platform === platform && text(item.accountId) === accountId);
-    const label = selected && text(selected.name) ? text(selected.name) + ' (' + accountId + ')' : accountId;
+    const selectedName = accountDisplayName(selected);
+    const label = selectedName ? selectedName + ' (' + accountId + ')' : accountId;
     if (!window.confirm('Usunąć konto ' + label + '?\n\nKonto zostanie dezaktywowane. Historia danych pozostanie zachowana.')) return;
 
     const btn = document.getElementById('deleteAccountBtn');
