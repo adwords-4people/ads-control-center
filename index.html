@@ -247,6 +247,7 @@
         <div class="section-header admin-section-header">
           <div><span class="section-title">Klienci / konta</span><div class="admin-section-note" id="adminClientsNote">Widok zarządczy klientów i kont.</div></div>
           <select id="adminClientPlatform" class="admin-filter" onchange="renderAdminClients()"><option value="">Wszystkie platformy</option><option value="Google Ads">Google Ads</option><option value="Meta Ads">Meta Ads</option></select>
+          <select id="adminClientOwner" class="admin-filter" onchange="renderAdminClients()" hidden><option value="">Wszyscy opiekunowie</option></select>
         </div>
         <div class="table-wrap">
           <table class="admin-table manager-clients-table"><thead id="adminClientsHead"><tr><th>Klient / konto</th><th>Platforma</th><th>Opiekun</th><th>Typ</th><th>Budżet</th><th>Akcje</th></tr></thead><tbody id="adminClientsBody"><tr><td colspan="6" class="admin-loading">Ładowanie…</td></tr></tbody></table>
@@ -422,7 +423,7 @@
 <script src="notes.js"></script>
 <script src="auth.js?v=1.7.8"></script>
 <script src="accounts.js?v=1.7.17"></script>
-<script src="admin.js?v=1.7.15"></script>
+<script src="admin.js?v=1.7.18"></script>
 <script src="dashboard.js?v=1.7.5"></script>
 <script src="bootstrap.js?v=1.7.5"></script>
 </body>

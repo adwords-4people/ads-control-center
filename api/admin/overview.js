@@ -318,6 +318,10 @@ module.exports = async function handler(req, res) {
       };
     }).filter(row => row.accountId || row.name);
 
+    const userNameByEmail = new Map(allUsers
+      .map(user => [normalizeEmail(user.email), clean(user.name)])
+      .filter(([email, name]) => email && name));
+
     const teamName = clean(effective.team);
     let scopedUsers = allUsers;
     if (managerView) {
@@ -342,6 +346,7 @@ module.exports = async function handler(req, res) {
 
     const accounts = [...googleAccounts, ...metaAccounts].map(account => ({
       ...account,
+      ownerName: userNameByEmail.get(normalizeEmail(account.ownerEmail)) || account.ownerName || account.ownerEmail,
       health: healthFor(account, reports, account.platform === 'Google Ads' ? progiGoogle.rows : progiMeta.rows),
     }));
 

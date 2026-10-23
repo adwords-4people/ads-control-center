@@ -134,6 +134,31 @@
       (reasons.length ? `<small class="manager-health-sub">${esc(reasons.join(' \u00b7 '))}</small>` : '');
   }
 
+  function updateManagerOwnerFilter(managerMode, accounts) {
+    const select = document.getElementById('adminClientOwner');
+    if (!select) return '';
+    if (!managerMode) {
+      select.hidden = true;
+      select.value = '';
+      return '';
+    }
+
+    const current = lower(select.value);
+    const owners = new Map();
+    (accounts || []).forEach(row => {
+      const key = lower(row.ownerEmail || row.ownerName);
+      if (!key || owners.has(key)) return;
+      owners.set(key, row.ownerName || row.ownerEmail || key);
+    });
+    const sorted = [...owners.entries()].sort((a, b) => String(a[1]).localeCompare(String(b[1]), 'pl'));
+    select.innerHTML = '<option value="">Wszyscy opiekunowie</option>' + sorted.map(([key, label]) =>
+      `<option value="${esc(key)}">${esc(label)}</option>`
+    ).join('');
+    select.hidden = false;
+    if (current && owners.has(current)) select.value = current;
+    return lower(select.value);
+  }
+
   window.renderAdminClients = function renderAdminClients() {
     if (!window.AUTH_CAN_CLIENTS) return;
     const body = document.getElementById('adminClientsBody');
@@ -149,8 +174,10 @@
     const q = lower(document.getElementById('searchInput') && document.getElementById('searchInput').value);
     const platform = text(document.getElementById('adminClientPlatform') && document.getElementById('adminClientPlatform').value);
     const all = state.overview.accounts || [];
+    const ownerFilter = updateManagerOwnerFilter(managerMode, all);
     let rows = all.filter(row => {
       if (platform && row.platform !== platform) return false;
+      if (ownerFilter && lower(row.ownerEmail || row.ownerName) !== ownerFilter) return false;
       if (!q) return true;
       return [row.name, row.accountId, row.ownerName, row.ownerEmail, row.type, row.platform].some(value => lower(value).includes(q));
     });
@@ -183,7 +210,7 @@
         return `<tr${row.active ? '' : ' class="admin-inactive-row"'}>
           <td><strong>${esc(row.name || row.accountId)}</strong><small class="admin-cell-sub">${esc(row.accountId)}</small></td>
           <td><span class="note-platforma-badge ${platformClass}">${esc(row.platform)}</span></td>
-          <td>${esc(owner)}</td>
+          <td><strong>${esc(owner)}</strong>${row.ownerEmail ? `<small class="admin-cell-sub">${esc(row.ownerEmail)}</small>` : ''}</td>
           <td>${healthMetric(m.budgetPct, tones.budget, value => pctText(value, false))}<small class="admin-cell-sub">Bud\u017cet: ${esc(fmtMoney(num(row.budget)))}</small></td>
           <td class="manager-health-cell">${resultMain}${resultSub}</td>
           <td>${healthMetric(m.trend, tones.trend, value => pctText(value, true))}</td>
