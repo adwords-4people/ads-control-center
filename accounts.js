@@ -1,5 +1,5 @@
 (function () {
-  const state = { loaded: false, loading: false, owners: [], googleSourcesByOwner: {}, metaSources: [], accounts: [], role: '' };
+  const state = { loaded: false, loading: false, owners: [], googleSourcesByOwner: {}, metaSources: [], accounts: [], inactiveAccounts: [], role: '' };
 
   function text(value) { return String(value == null ? '' : value).trim(); }
   function esc(value) {
@@ -87,6 +87,7 @@
       state.googleSourcesByOwner = payload.googleSourcesByOwner || {};
       state.metaSources = payload.metaSources || [];
       state.accounts = payload.accounts || [];
+      state.inactiveAccounts = payload.inactiveAccounts || [];
       state.role = payload.role || '';
       state.loaded = true;
       renderOwnerOptions();
@@ -276,6 +277,116 @@
     }
   };
 
+  function restoreFeedback(message, error) {
+    const el = document.getElementById('restoreAccountFeedback');
+    if (!el) return;
+    el.textContent = message || '';
+    el.className = 'admin-modal-feedback' + (error ? ' err' : '');
+  }
+
+  window.updateRestoreAccountOptions = function updateRestoreAccountOptions() {
+    const platform = text(document.getElementById('restoreAccountPlatform') && document.getElementById('restoreAccountPlatform').value) || 'Google Ads';
+    const select = document.getElementById('restoreAccountSelect');
+    const note = document.getElementById('restoreAccountNote');
+    if (!select) return;
+
+    const accounts = (state.inactiveAccounts || []).filter(item => item.platform === platform);
+    if (!accounts.length) {
+      select.innerHTML = '<option value="">Brak nieaktywnych kont do przywrócenia</option>';
+      select.disabled = true;
+      select.required = false;
+      if (note) note.textContent = 'Nie masz nieaktywnych kont ' + platform + ' przypisanych bezpośrednio do siebie.';
+      return;
+    }
+
+    select.disabled = false;
+    select.required = true;
+    select.innerHTML = accounts.map(item => {
+      const id = text(item.accountId);
+      const name = accountDisplayName(item);
+      const label = name ? name + ' · ' + id : id;
+      return '<option value="' + esc(id) + '">' + esc(label) + '</option>';
+    }).join('');
+    if (note) note.textContent = 'Przywrócenie ponownie oznaczy konto jako aktywne. Wróci do synchronizacji przy następnym przebiegu skryptu.';
+  };
+
+  window.openRestoreAccountModal = async function openRestoreAccountModal() {
+    if (!window.AUTH_SHOW_ADD_ACCOUNT) return;
+    const modal = document.getElementById('restoreAccountModal');
+    if (!modal) return;
+    restoreFeedback('Ładowanie kont…', false);
+    modal.hidden = false;
+    try {
+      await loadOptions(true);
+      restoreFeedback('', false);
+      const platform = document.getElementById('restoreAccountPlatform');
+      if (platform) platform.value = 'Google Ads';
+      window.updateRestoreAccountOptions();
+      const btn = document.getElementById('restoreAccountBtn');
+      if (btn) {
+        btn.disabled = !window.AUTH_CAN_ADD_ACCOUNT;
+        btn.title = window.AUTH_CAN_ADD_ACCOUNT ? '' : 'Tryb Podgląd jako — zmiany są wyłączone.';
+      }
+      const note = document.getElementById('restoreAccountNote');
+      if (!window.AUTH_CAN_ADD_ACCOUNT && note) {
+        note.textContent = 'Tryb Podgląd jako: widzisz nieaktywne konta użytkownika, ale ich przywracanie jest wyłączone.';
+      }
+    } catch (error) {
+      console.error('[Account restore]', error);
+      restoreFeedback(error.message, true);
+    }
+  };
+
+  window.closeRestoreAccountModal = function closeRestoreAccountModal() {
+    const modal = document.getElementById('restoreAccountModal');
+    if (modal) modal.hidden = true;
+    const form = document.getElementById('restoreAccountForm');
+    if (form) form.reset();
+    restoreFeedback('', false);
+  };
+
+  window.restoreAccount = async function restoreAccount(event) {
+    event.preventDefault();
+    if (!window.AUTH_CAN_ADD_ACCOUNT) {
+      restoreFeedback('Tryb Podgląd jako — zmiany są wyłączone.', true);
+      return;
+    }
+
+    const platform = text(document.getElementById('restoreAccountPlatform').value);
+    const select = document.getElementById('restoreAccountSelect');
+    const accountId = text(select && select.value);
+    if (!accountId) {
+      restoreFeedback('Wybierz konto do przywrócenia.', true);
+      return;
+    }
+
+    const selected = (state.inactiveAccounts || []).find(item => item.platform === platform && text(item.accountId) === accountId);
+    const selectedName = accountDisplayName(selected);
+    const label = selectedName ? selectedName + ' (' + accountId + ')' : accountId;
+    if (!window.confirm('Przywrócić konto ' + label + '?\n\nKonto wróci do aktywnej synchronizacji.')) return;
+
+    const btn = document.getElementById('restoreAccountBtn');
+    if (btn) btn.disabled = true;
+    restoreFeedback('Przywracanie konta…', false);
+    try {
+      const response = await fetch('/api/accounts/self-service', {
+        method: 'POST', cache: 'no-store', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'activate', platform, accountId }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) throw new Error(result.message || result.error || `HTTP ${response.status}`);
+      window.closeRestoreAccountModal();
+      state.loaded = false;
+      if (typeof showToast === 'function') showToast('Konto przywrócone. Wróci do synchronizacji przy następnym przebiegu.', 'ok');
+      if (typeof window.loadAllData === 'function') window.loadAllData();
+    } catch (error) {
+      restoreFeedback(error.message, true);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  };
+
   window.saveAccount = async function saveAccount(event) {
     event.preventDefault();
     if (!window.AUTH_CAN_ADD_ACCOUNT) {
@@ -328,8 +439,10 @@
   document.addEventListener('keydown', event => {
     const modal = document.getElementById('accountModal');
     const deleteModal = document.getElementById('deleteAccountModal');
+    const restoreModal = document.getElementById('restoreAccountModal');
     if (event.key === 'Escape' && modal && !modal.hidden) window.closeAccountModal();
     if (event.key === 'Escape' && deleteModal && !deleteModal.hidden) window.closeDeleteAccountModal();
+    if (event.key === 'Escape' && restoreModal && !restoreModal.hidden) window.closeRestoreAccountModal();
   });
 
   if (typeof waitForAuth === 'function') {

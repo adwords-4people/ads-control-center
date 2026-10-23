@@ -43,6 +43,13 @@ function updateRowValues(headers, row, changes) {
 function hasHeader(headers, key) {
   return (headers || []).some(header => headerKey(header) === key);
 }
+function requireHeaderGroups(headers, requiredGroups, sheetName) {
+  const keys = new Set((headers || []).map(headerKey));
+  const missing = requiredGroups
+    .filter(group => !group.some(item => keys.has(item)))
+    .map(group => group.join(' / '));
+  if (missing.length) throw new Error(`Zakładka ${sheetName} nie ma wymaganych kolumn: ${missing.join(', ')}.`);
+}
 
 async function setAccountActive(req, res, platform, rawAccountId, active) {
   const sheetName = platform === 'Google Ads' ? GOOGLE_ACCOUNTS_SHEET : META_ACCOUNTS_SHEET;
@@ -115,7 +122,9 @@ module.exports = async function handler(req, res) {
 
       const sheets = await fetchSheetsByName(IDS.config, [GOOGLE_ACCOUNTS_SHEET, GOOGLE_MCK_SHEET], req);
       const accounts = sheets.get(GOOGLE_ACCOUNTS_SHEET) || { headers: [], rows: [] };
-      const mcks = sheets.get(GOOGLE_MCK_SHEET) || { rows: [] };
+      const mcks = sheets.get(GOOGLE_MCK_SHEET) || { headers: [], rows: [] };
+      requireHeaderGroups(accounts.headers, [['id konta'], ['mck id']], GOOGLE_ACCOUNTS_SHEET);
+      requireHeaderGroups(mcks.headers, [['mck id'], ['email'], ['aktywne']], GOOGLE_MCK_SHEET);
 
       const mck = mcks.rows.find(row =>
         isActive(row['Aktywne']) &&
@@ -148,6 +157,7 @@ module.exports = async function handler(req, res) {
 
     const sheets = await fetchSheetsByName(IDS.config, [META_ACCOUNTS_SHEET], req);
     const accounts = sheets.get(META_ACCOUNTS_SHEET) || { headers: [], rows: [] };
+    requireHeaderGroups(accounts.headers, [['id konta'], ['uzytkownik'], ['email']], META_ACCOUNTS_SHEET);
     const index = accounts.rows.findIndex(row => normalizeMetaId(row['ID Konta']) === accountId);
     if (index < 0) return json(res, 404, { ok: false, error: 'account_not_found', message: 'Nie znaleziono konta Meta Ads w konfiguracji.' });
     const row = accounts.rows[index];

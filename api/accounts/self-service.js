@@ -95,7 +95,7 @@ function updateRowValues(headers, row, changes) {
     return row[header] == null ? '' : row[header];
   });
 }
-function ownAccountsForUser(email, mckRows, googleRows, metaRows) {
+function accountListsForUser(email, mckRows, googleRows, metaRows) {
   const ownerEmail = normalizeEmail(email);
   const ownMcks = new Set((mckRows || [])
     .filter(row => isActive(row['Aktywne']) && normalizeEmail(row['Email']) === ownerEmail)
@@ -103,24 +103,30 @@ function ownAccountsForUser(email, mckRows, googleRows, metaRows) {
     .filter(Boolean));
 
   const google = (googleRows || [])
-    .filter(row => isActive(row['Aktywne']) && ownMcks.has(clean(row['MCK_ID'])))
+    .filter(row => ownMcks.has(clean(row['MCK_ID'])))
     .map(row => ({
       platform: 'Google Ads',
       accountId: displayGoogleId(row['ID Konta']),
       name: accountName(row),
+      active: isActive(row['Aktywne']),
     }))
     .filter(item => normalizeGoogleId(item.accountId));
 
   const meta = (metaRows || [])
-    .filter(row => isActive(row['Aktywne']) && normalizeEmail(row['Email']) === ownerEmail)
+    .filter(row => normalizeEmail(row['Email']) === ownerEmail)
     .map(row => ({
       platform: 'Meta Ads',
       accountId: displayMetaId(row['ID Konta']),
       name: accountName(row),
+      active: isActive(row['Aktywne']),
     }))
     .filter(item => normalizeMetaId(item.accountId));
 
-  return [...google, ...meta];
+  const all = [...google, ...meta];
+  return {
+    active: all.filter(item => item.active),
+    inactive: all.filter(item => !item.active),
+  };
 }
 
 async function getEligibleOwners(context, req) {
@@ -175,6 +181,13 @@ async function getOptions(req, context) {
     }))
     .filter(item => item.id);
 
+  const accountLists = accountListsForUser(
+    (context.previewing ? context.effectiveUser : context.actualUser).email,
+    mck.rows,
+    googleAccounts.rows,
+    metaAccounts.rows
+  );
+
   return {
     owners: owners.map(user => ({
       email: normalizeEmail(user.email),
@@ -184,12 +197,8 @@ async function getOptions(req, context) {
     })),
     googleSourcesByOwner,
     metaSources,
-    accounts: ownAccountsForUser(
-      (context.previewing ? context.effectiveUser : context.actualUser).email,
-      mck.rows,
-      googleAccounts.rows,
-      metaAccounts.rows
-    ),
+    accounts: accountLists.active,
+    inactiveAccounts: accountLists.inactive,
   };
 }
 
@@ -234,7 +243,7 @@ module.exports = async function handler(req, res) {
     const body = readBody(req);
     const action = lower(body.action || 'add');
 
-    if (action === 'deactivate') {
+    if (action === 'deactivate' || action === 'activate') {
       const platform = clean(body.platform);
       if (!['Google Ads', 'Meta Ads'].includes(platform)) {
         return json(res, 400, { ok: false, error: 'invalid_platform', message: 'Wybierz Google Ads albo Meta Ads.' });
@@ -242,9 +251,13 @@ module.exports = async function handler(req, res) {
 
       const normalizeId = platform === 'Google Ads' ? normalizeGoogleId : normalizeMetaId;
       const accountId = normalizeId(body.accountId);
-      const allowed = (options.accounts || []).some(item => item.platform === platform && normalizeId(item.accountId) === accountId);
+      const source = action === 'activate' ? (options.inactiveAccounts || []) : (options.accounts || []);
+      const allowed = source.some(item => item.platform === platform && normalizeId(item.accountId) === accountId);
       if (!accountId || !allowed) {
-        return json(res, 403, { ok: false, error: 'account_forbidden', message: 'Możesz usunąć tylko aktywne konto przypisane bezpośrednio do siebie.' });
+        const message = action === 'activate'
+          ? 'Możesz przywrócić tylko nieaktywne konto przypisane bezpośrednio do siebie.'
+          : 'Możesz usunąć tylko aktywne konto przypisane bezpośrednio do siebie.';
+        return json(res, 403, { ok: false, error: 'account_forbidden', message });
       }
 
       const sheetName = platform === 'Google Ads' ? GOOGLE_SHEET : META_SHEET;
@@ -256,10 +269,10 @@ module.exports = async function handler(req, res) {
       }
 
       const row = sheet.rows[index];
-      const values = updateRowValues(sheet.headers, row, { 'aktywne': 'NIE' });
+      const values = updateRowValues(sheet.headers, row, { 'aktywne': action === 'activate' ? 'TAK' : 'NIE' });
       await setSheetRowValues(IDS.config, sheetName, index + 2, values, req);
       clearMappingsCache();
-      return json(res, 200, { ok: true, action: 'deactivate', platform, accountId });
+      return json(res, 200, { ok: true, action, platform, accountId, active: action === 'activate' });
     }
 
     if (action !== 'add') {
