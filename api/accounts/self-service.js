@@ -76,9 +76,11 @@ function buildRow(headers, values) {
     }
   });
 }
-function requireHeaders(headers, required, sheetName) {
+function requireHeaderGroups(headers, requiredGroups, sheetName) {
   const keys = new Set(headers.map(headerKey));
-  const missing = required.filter(item => !keys.has(item));
+  const missing = requiredGroups
+    .filter(group => !group.some(item => keys.has(item)))
+    .map(group => group.join(' / '));
   if (missing.length) throw new Error(`Zakładka ${sheetName} nie ma wymaganych kolumn: ${missing.join(', ')}.`);
 }
 
@@ -215,7 +217,17 @@ module.exports = async function handler(req, res) {
       }
 
       const sheet = await fetchSheetByName(IDS.config, GOOGLE_SHEET, req);
-      requireHeaders(sheet.headers, ['mck id', 'id konta', 'konto', 'typ', 'uzytkownik', 'email', 'budzet', 'aktywne'], GOOGLE_SHEET);
+      // W Google Ads właściciel konta wynika z przypisanego MCK.
+      // Dlatego arkusz kont nie musi mieć osobnych kolumn Użytkownik/Email.
+      // Akceptujemy też historyczny nagłówek "Nazwa konta" zamiast "Konto".
+      requireHeaderGroups(sheet.headers, [
+        ['mck id'],
+        ['id konta'],
+        ['konto', 'nazwa konta'],
+        ['typ'],
+        ['budzet'],
+        ['aktywne'],
+      ], GOOGLE_SHEET);
       if (sheet.rows.some(row => normalizeGoogleId(row['ID Konta']) === accountId)) {
         return json(res, 409, { ok: false, error: 'duplicate', message: 'To konto Google Ads jest już w konfiguracji. Użyj funkcji Przypisz, jeśli chcesz zmienić opiekuna.' });
       }
@@ -245,7 +257,16 @@ module.exports = async function handler(req, res) {
     }
 
     const sheet = await fetchSheetByName(IDS.config, META_SHEET, req);
-    requireHeaders(sheet.headers, ['bm id', 'id konta', 'konto', 'typ', 'uzytkownik', 'email', 'budzet', 'aktywne'], META_SHEET);
+    requireHeaderGroups(sheet.headers, [
+      ['bm id'],
+      ['id konta'],
+      ['konto', 'nazwa konta'],
+      ['typ'],
+      ['uzytkownik'],
+      ['email'],
+      ['budzet'],
+      ['aktywne'],
+    ], META_SHEET);
     if (sheet.rows.some(row => normalizeMetaId(row['ID Konta']) === accountId)) {
       return json(res, 409, { ok: false, error: 'duplicate', message: 'To konto Meta Ads jest już w konfiguracji. Użyj funkcji Przypisz, jeśli chcesz zmienić opiekuna.' });
     }
