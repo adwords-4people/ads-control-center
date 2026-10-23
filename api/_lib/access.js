@@ -138,4 +138,5 @@ module.exports = {
   getAuthContext,
   getReportingScope,
   isAdmin,
+  isManager,
 };
