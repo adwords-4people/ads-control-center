@@ -219,11 +219,11 @@ module.exports = async function handler(req, res) {
       const sheet = await fetchSheetByName(IDS.config, GOOGLE_SHEET, req);
       // W Google Ads właściciel konta wynika z przypisanego MCK.
       // Dlatego arkusz kont nie musi mieć osobnych kolumn Użytkownik/Email.
-      // Akceptujemy też historyczny nagłówek "Nazwa konta" zamiast "Konto".
+      // Nazwa konta Google Ads nie jest przechowywana w arkuszu konfiguracji.
+      // Pojawia sie po synchronizacji z Google Ads i jest laczona po ID Konta.
       requireHeaderGroups(sheet.headers, [
         ['mck id'],
         ['id konta'],
-        ['konto', 'nazwa konta'],
         ['typ'],
         ['budzet'],
         ['aktywne'],
