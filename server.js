@@ -34,6 +34,42 @@ app.get('/api/health', (req, res) => {
     runtime: 'cloud-run',
   });
 });
+app.get('/api/health/sheets', async (req, res) => {
+  try {
+    const {
+      IDS,
+      fetchSheetByName,
+      serviceAccountEmail
+    } = require('./api/_lib/sheets');
+
+    const result = await fetchSheetByName(
+      IDS.config,
+      'Użytkownicy',
+      req
+    );
+
+    res.status(200).json({
+      ok: true,
+      service: 'ppc-control-center',
+      runtime: 'cloud-run',
+      sheets: true,
+      serviceAccount: serviceAccountEmail(),
+      rows: Array.isArray(result.rows) ? result.rows.length : 0
+    });
+  } catch (error) {
+    console.error('[Sheets health]', error);
+
+    res.status(500).json({
+      ok: false,
+      service: 'ppc-control-center',
+      runtime: 'cloud-run',
+      sheets: false,
+      error: error && error.message
+        ? error.message
+        : String(error)
+    });
+  }
+});
 
 // -------------------------------------------------------
 // Existing API routes
