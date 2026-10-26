@@ -1,0 +1,12 @@
+{
+  "name": "ppc-control-center",
+  "version": "1.8.0-cloud-run",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
