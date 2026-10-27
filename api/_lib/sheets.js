@@ -12,34 +12,148 @@ const IDS = Object.freeze({
   notes: process.env.NOTES_SHEET_ID || DEFAULT_NOTES_SHEET_ID,
 });
 
+const STS_URL = 'https://sts.googleapis.com/v1/token';
+const IAM_CREDENTIALS_API = 'https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts';
 const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets';
+const CLOUD_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
 const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
+const TOKEN_SAFETY_MS = 2 * 60 * 1000;
 const METADATA_CACHE_MS = 5 * 60 * 1000;
-
 const DEFAULT_SERVICE_ACCOUNT_EMAIL =
   'ppc-control-center-sheets@ppc-control-center-512313.iam.gserviceaccount.com';
 
-const googleAuth = new GoogleAuth({
-  scopes: [SHEETS_SCOPE],
-});
-
+let vercelTokenCache = { token: '', expiresAt: 0, pending: null };
 const metadataCache = new Map();
-async function getAccessToken() {
-  const client = await googleAuth.getClient();
-  const result = await client.getAccessToken();
+const googleAuth = new GoogleAuth({ scopes: [SHEETS_SCOPE] });
 
-  const token = typeof result === 'string'
-    ? result
-    : result && result.token;
+function requireEnv(name) {
+  const value = String(process.env[name] || '').trim();
+  if (!value) throw new Error(`Brak ${name} w Environment Variables.`);
+  return value;
+}
 
+function getOidcConfig() {
+  return {
+    projectId: requireEnv('GCP_PROJECT_ID'),
+    projectNumber: requireEnv('GCP_PROJECT_NUMBER'),
+    serviceAccountEmail: requireEnv('GCP_SERVICE_ACCOUNT_EMAIL'),
+    poolId: requireEnv('GCP_WORKLOAD_IDENTITY_POOL_ID'),
+    providerId: requireEnv('GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID'),
+  };
+}
+
+function getRequestHeader(req, name) {
+  if (!req || !req.headers) return '';
+  if (typeof req.headers.get === 'function') return String(req.headers.get(name) || '').trim();
+  const lower = name.toLowerCase();
+  const raw = req.headers[lower] ?? req.headers[name] ?? '';
+  return Array.isArray(raw) ? String(raw[0] || '').trim() : String(raw || '').trim();
+}
+
+function isVercelRuntime(req) {
+  if (String(process.env.VERCEL || '').trim()) return true;
+  if (String(process.env.VERCEL_ENV || '').trim()) return true;
+  return Boolean(
+    getRequestHeader(req, 'x-vercel-oidc-token') ||
+    String(process.env.VERCEL_OIDC_TOKEN || '').trim()
+  );
+}
+
+function getVercelOidcToken(req) {
+  const token = getRequestHeader(req, 'x-vercel-oidc-token') || String(process.env.VERCEL_OIDC_TOKEN || '').trim();
   if (!token) {
-    throw new Error(
-      'Nie udało się pobrać tokenu Google przez Cloud Run Application Default Credentials.'
-    );
+    throw new Error('Brak tokenu Vercel OIDC. Sprawdz Settings -> Security -> OIDC Federation i wykonaj nowy deployment.');
   }
-
   return token;
 }
+
+async function exchangeVercelToken(req) {
+  const cfg = getOidcConfig();
+  const subjectToken = getVercelOidcToken(req);
+  const audience = `//iam.googleapis.com/projects/${cfg.projectNumber}/locations/global/workloadIdentityPools/${cfg.poolId}/providers/${cfg.providerId}`;
+
+  const response = await fetch(STS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+      audience,
+      requested_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+      scope: CLOUD_SCOPE,
+      subject_token_type: 'urn:ietf:params:oauth:token-type:jwt',
+      subject_token: subjectToken,
+    }),
+    cache: 'no-store',
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.access_token) {
+    const details = payload.error_description || payload.error || `HTTP ${response.status}`;
+    throw new Error(`Google STS odrzucil token Vercel OIDC: ${details}`);
+  }
+  return payload.access_token;
+}
+
+async function impersonateServiceAccount(req) {
+  const cfg = getOidcConfig();
+  const federatedToken = await exchangeVercelToken(req);
+  const url = `${IAM_CREDENTIALS_API}/${encodeURIComponent(cfg.serviceAccountEmail)}:generateAccessToken`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${federatedToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ scope: [SHEETS_SCOPE], lifetime: '3600s' }),
+    cache: 'no-store',
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.accessToken) {
+    const details = payload && payload.error && payload.error.message
+      ? payload.error.message
+      : `HTTP ${response.status}`;
+    throw new Error(`Nie udalo sie przejac tozsamosci konta uslugi: ${details}`);
+  }
+
+  const parsedExpiry = Date.parse(payload.expireTime || '');
+  vercelTokenCache = {
+    token: payload.accessToken,
+    expiresAt: Number.isFinite(parsedExpiry) ? parsedExpiry : Date.now() + 55 * 60 * 1000,
+    pending: null,
+  };
+  return vercelTokenCache.token;
+}
+
+async function getVercelAccessToken(req) {
+  if (vercelTokenCache.token && Date.now() < vercelTokenCache.expiresAt - TOKEN_SAFETY_MS) {
+    return vercelTokenCache.token;
+  }
+  if (!vercelTokenCache.pending) {
+    vercelTokenCache.pending = impersonateServiceAccount(req).catch(error => {
+      vercelTokenCache.pending = null;
+      throw error;
+    });
+  }
+  return vercelTokenCache.pending;
+}
+
+async function getCloudRunAccessToken() {
+  const client = await googleAuth.getClient();
+  const result = await client.getAccessToken();
+  const token = typeof result === 'string' ? result : result && result.token;
+  if (!token) {
+    throw new Error('Nie udalo sie pobrac tokenu Google przez Cloud Run Application Default Credentials.');
+  }
+  return token;
+}
+
+async function getAccessToken(req) {
+  return isVercelRuntime(req)
+    ? getVercelAccessToken(req)
+    : getCloudRunAccessToken();
+}
+
 async function googleGet(url, req) {
   const token = await getAccessToken(req);
   const response = await fetch(url, {
@@ -239,18 +353,27 @@ function serviceAccountEmail() {
 }
 
 function oidcInfo() {
+  if (isVercelRuntime()) {
+    const cfg = getOidcConfig();
+    return {
+      projectId: cfg.projectId,
+      projectNumber: cfg.projectNumber,
+      serviceAccountEmail: cfg.serviceAccountEmail,
+      poolId: cfg.poolId,
+      providerId: cfg.providerId,
+      runtime: 'vercel-oidc',
+    };
+  }
+
   return {
     projectId:
       process.env.GOOGLE_CLOUD_PROJECT ||
       process.env.GCP_PROJECT_ID ||
       'ppc-control-center-512313',
-
     projectNumber:
       process.env.GCP_PROJECT_NUMBER ||
       '515371390885',
-
     serviceAccountEmail: serviceAccountEmail(),
-
     poolId: '',
     providerId: '',
     runtime: 'cloud-run-adc',
