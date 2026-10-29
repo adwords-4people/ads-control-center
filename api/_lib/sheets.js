@@ -1,3 +1,5 @@
+const { GoogleAuth } = require('google-auth-library');
+
 const DEFAULT_CONFIG_SHEET_ID = '1fy9NxgD9G52lRRie4Br9L-Y_VRVseZ4ksFmH32t5v8M';
 const DEFAULT_GOOGLE_DATA_SHEET_ID = '1_CMt0tZhGqT3y6wp5tTpetU7GtNtt2bKkzERg2iLNhw';
 const DEFAULT_META_DATA_SHEET_ID = '1_GCw4RqECUNeKisRNXSpb0ekcz1IQNxgb180ymexLOU';
@@ -17,9 +19,12 @@ const CLOUD_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
 const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const TOKEN_SAFETY_MS = 2 * 60 * 1000;
 const METADATA_CACHE_MS = 5 * 60 * 1000;
+const DEFAULT_SERVICE_ACCOUNT_EMAIL =
+  'ppc-control-center-sheets@ppc-control-center-512313.iam.gserviceaccount.com';
 
-let tokenCache = { token: '', expiresAt: 0, pending: null };
+let vercelTokenCache = { token: '', expiresAt: 0, pending: null };
 const metadataCache = new Map();
+const googleAuth = new GoogleAuth({ scopes: [SHEETS_SCOPE] });
 
 function requireEnv(name) {
   const value = String(process.env[name] || '').trim();
@@ -43,6 +48,15 @@ function getRequestHeader(req, name) {
   const lower = name.toLowerCase();
   const raw = req.headers[lower] ?? req.headers[name] ?? '';
   return Array.isArray(raw) ? String(raw[0] || '').trim() : String(raw || '').trim();
+}
+
+function isVercelRuntime(req) {
+  if (String(process.env.VERCEL || '').trim()) return true;
+  if (String(process.env.VERCEL_ENV || '').trim()) return true;
+  return Boolean(
+    getRequestHeader(req, 'x-vercel-oidc-token') ||
+    String(process.env.VERCEL_OIDC_TOKEN || '').trim()
+  );
 }
 
 function getVercelOidcToken(req) {
@@ -103,23 +117,41 @@ async function impersonateServiceAccount(req) {
   }
 
   const parsedExpiry = Date.parse(payload.expireTime || '');
-  tokenCache = {
+  vercelTokenCache = {
     token: payload.accessToken,
     expiresAt: Number.isFinite(parsedExpiry) ? parsedExpiry : Date.now() + 55 * 60 * 1000,
     pending: null,
   };
-  return tokenCache.token;
+  return vercelTokenCache.token;
 }
 
-async function getAccessToken(req) {
-  if (tokenCache.token && Date.now() < tokenCache.expiresAt - TOKEN_SAFETY_MS) return tokenCache.token;
-  if (!tokenCache.pending) {
-    tokenCache.pending = impersonateServiceAccount(req).catch(error => {
-      tokenCache.pending = null;
+async function getVercelAccessToken(req) {
+  if (vercelTokenCache.token && Date.now() < vercelTokenCache.expiresAt - TOKEN_SAFETY_MS) {
+    return vercelTokenCache.token;
+  }
+  if (!vercelTokenCache.pending) {
+    vercelTokenCache.pending = impersonateServiceAccount(req).catch(error => {
+      vercelTokenCache.pending = null;
       throw error;
     });
   }
-  return tokenCache.pending;
+  return vercelTokenCache.pending;
+}
+
+async function getCloudRunAccessToken() {
+  const client = await googleAuth.getClient();
+  const result = await client.getAccessToken();
+  const token = typeof result === 'string' ? result : result && result.token;
+  if (!token) {
+    throw new Error('Nie udalo sie pobrac tokenu Google przez Cloud Run Application Default Credentials.');
+  }
+  return token;
+}
+
+async function getAccessToken(req) {
+  return isVercelRuntime(req)
+    ? getVercelAccessToken(req)
+    : getCloudRunAccessToken();
 }
 
 async function googleGet(url, req) {
@@ -314,17 +346,37 @@ function isActive(value) {
 }
 
 function serviceAccountEmail() {
-  return String(process.env.GCP_SERVICE_ACCOUNT_EMAIL || '').trim();
+  return String(
+    process.env.GCP_SERVICE_ACCOUNT_EMAIL ||
+    DEFAULT_SERVICE_ACCOUNT_EMAIL
+  ).trim();
 }
 
 function oidcInfo() {
-  const cfg = getOidcConfig();
+  if (isVercelRuntime()) {
+    const cfg = getOidcConfig();
+    return {
+      projectId: cfg.projectId,
+      projectNumber: cfg.projectNumber,
+      serviceAccountEmail: cfg.serviceAccountEmail,
+      poolId: cfg.poolId,
+      providerId: cfg.providerId,
+      runtime: 'vercel-oidc',
+    };
+  }
+
   return {
-    projectId: cfg.projectId,
-    projectNumber: cfg.projectNumber,
-    serviceAccountEmail: cfg.serviceAccountEmail,
-    poolId: cfg.poolId,
-    providerId: cfg.providerId,
+    projectId:
+      process.env.GOOGLE_CLOUD_PROJECT ||
+      process.env.GCP_PROJECT_ID ||
+      'ppc-control-center-512313',
+    projectNumber:
+      process.env.GCP_PROJECT_NUMBER ||
+      '515371390885',
+    serviceAccountEmail: serviceAccountEmail(),
+    poolId: '',
+    providerId: '',
+    runtime: 'cloud-run-adc',
   };
 }
 
